@@ -1,6 +1,9 @@
-node_modules/
-.vercel
-.env
-.env.local
-*.log
-.DS_Store
+{
+  "buildCommand": false,
+  "outputDirectory": "public",
+  "functions": {
+    "api/chat.js": {
+      "maxDuration": 30
+    }
+  }
+}
