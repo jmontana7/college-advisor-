@@ -1,4 +1,4 @@
-# Covenant
+# Obee
 
 AI-powered college advisor for high school and community college students.
 *Find Your Path* — the intake-to-recommendation flow — is the first tool live.
