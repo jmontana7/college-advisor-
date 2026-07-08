@@ -1,39 +1,29 @@
 // ============================================================================
-//  Covenant — Backend proxy para la API de Claude  (/api/chat.js)
+//  Obee -- Backend proxy for the Claude API  (/api/chat.js)
 // ----------------------------------------------------------------------------
-//  Función serverless de Vercel. Recibe los mensajes del intake desde el
-//  frontend, aplica límites de seguridad/gasto, y le pide a Claude una
-//  respuesta en JSON ESTRUCTURADO (no texto libre) para poder:
-//   1) extraer datos del perfil del estudiante desde el chat libre
-//   2) decidir si hay que saltar a otro paso del intake
-//   3) mostrar un mensaje corto y cálido en el chat
+//  Serverless function on Vercel. Receives intake messages from the
+//  frontend, applies spend/safety limits, and asks Claude for a
+//  STRUCTURED JSON response so the frontend can:
+//   1) extract profile data from free-text chat
+//   2) decide whether to jump to another intake step
+//   3) render a rich results UI (schools/top-pick/gaps/next-steps) instead
+//      of a wall of prose, or ask a clarifying question when unsure
 //
-//  El estudiante NUNCA ve la API key. El navegador solo habla con tu dominio.
+//  The student NEVER sees the API key. The browser only talks to your domain.
 // ============================================================================
 
 const CONFIG = {
-  // Modelo actual recomendado para uso conversacional cotidiano (jun 2026).
   MODEL: 'claude-sonnet-4-6',
-
-  // Respuestas del intake son cortas (JSON + 1-2 frases). 1024 es de sobra.
-  MAX_TOKENS: 1024,
-
-  // Tope de turnos de usuario por conversación completa (intake + chat post-resultados).
+  MAX_TOKENS: 1600,
   MAX_MESSAGES_PER_CONVERSATION: 20,
-
-  // Tope de caracteres del mensaje entrante (evita pegar textos enormes).
   MAX_INPUT_CHARS: 4000,
-
-  // Rate limiting por IP.
   RATE_LIMIT_REQUESTS: 30,
   RATE_LIMIT_WINDOW_MS: 60 * 1000,
 };
 
-// ─────────────────────────────────────────────────────────────────────────
-//  IDs de los pasos del intake — deben calzar EXACTO con los step_id que usa
-//  el frontend (ver public/js/steps.js). Esto le da a Claude el vocabulario
-//  cerrado para decidir saltos sin inventar nombres de pasos.
-// ─────────────────────────────────────────────────────────────────────────
+// --------------------------------------------------------------------------
+//  Step ids -- must match public/js/steps.js exactly.
+// --------------------------------------------------------------------------
 const HS_STEPS = [
   'hs_grade', 'hs_gpa', 'hs_courses', 'hs_extracurriculars', 'hs_major',
   'hs_college_type', 'hs_state', 'hs_out_of_state', 'hs_first_gen', 'hs_test_scores',
@@ -47,106 +37,109 @@ const CC_STEPS = [
 
 const ALL_STEPS = ['student_type', ...HS_STEPS, ...CC_STEPS];
 
-// ─────────────────────────────────────────────────────────────────────────
-//  SYSTEM PROMPT — fijo en el servidor. El frontend no puede sobreescribirlo.
-// ─────────────────────────────────────────────────────────────────────────
-function buildSystemPrompt() {
-  return `Eres el motor conversacional de Covenant, un asesor universitario cálido y honesto para estudiantes de EE.UU. Tu trabajo en este momento NO es dar la recomendación final de universidades — es ayudar a llenar el perfil del estudiante durante un intake tipo Duolingo (preguntas card-by-card), interpretando lo que el estudiante escribe en un campo de texto libre llamado "Anything else you'd like to share?".
+// --------------------------------------------------------------------------
+//  INTAKE system prompt -- extracts data + decides step jumps.
+// --------------------------------------------------------------------------
+function buildIntakeSystemPrompt() {
+  return `You are the conversational engine of Obee, a warm and honest college advisor for US students. Your job right now is NOT to give the final recommendation -- it's to help fill in the student's profile during a Duolingo-style intake (card-by-card questions), interpreting what they write in a free-text field called "Anything else you'd like to share?".
 
-CONTEXTO QUE RECIBES EN CADA TURNO:
-- "current_step": el paso del intake en el que está el estudiante ahora.
-- "profile": los datos ya recolectados del estudiante hasta ahora (puede estar vacío).
-- El último mensaje del usuario: lo que escribió en el campo de texto libre de ESE paso.
+CONTEXT YOU RECEIVE EACH TURN:
+- "current_step": the intake step the student is currently on.
+- "profile": data already collected from the student so far (may be empty).
+- The student's latest message: what they wrote in that step's free-text field.
 
-TU TRABAJO:
-1. Lee el texto libre del estudiante.
-2. Extrae cualquier dato de perfil que esté ahí (GPA, cursos, extracurriculares, estado, major, etc.), incluso si no corresponde exactamente al paso actual — los estudiantes a veces adelantan información de pasos futuros.
-3. Decide si el estudiante ya respondió, de forma natural, una pregunta de un paso FUTURO que aún no se le ha mostrado. Si es así, indica a qué paso saltar usando next_step.
-4. Si el texto no aporta nada nuevo o es solo conversación (saludos, dudas), no extraigas nada falso — deja extracted_data vacío.
-5. Escribe una respuesta conversacional MUY breve (1 frase, máximo 2), cálida, en el idioma en que el estudiante escribió (inglés o español). Confirma lo que entendiste sin sonar robótico. Ejemplo: "Got it — I noted you've already taken Calculus." o "Anotado, ya tienes 45 unidades."
+YOUR JOB:
+1. Read the student's free text.
+2. Extract any profile data present (GPA, courses, extracurriculars, state, major, etc.), even if it doesn't map exactly to the current step -- students sometimes volunteer info about future steps.
+3. Decide if the student's message naturally already answers a FUTURE step that hasn't been shown yet. If so, set next_step to jump there.
+4. If the text adds nothing new or is just conversation (greetings, questions), do not fabricate extracted data -- leave extracted_data empty.
+5. Write a very short (1 sentence, max 2) warm conversational reply in the SAME language the student wrote in (English or Spanish). Confirm what you understood without sounding robotic.
 
-PASOS VÁLIDOS PARA next_step (usa el id exacto o null si no aplica salto):
+VALID STEP IDS FOR next_step (use the exact id, or null if no jump applies):
 ${ALL_STEPS.map((s) => `- ${s}`).join('\n')}
 
-REGLAS:
-- NUNCA inventes datos que el estudiante no mencionó.
-- Si el estudiante menciona algo ambiguo (ej. "tengo buenas notas" sin número), NO lo pongas como GPA numérico — deja ese campo vacío y tu respuesta puede pedir aclaración suavemente, pero sin bloquear el flujo.
-- Si el estudiante pregunta algo informativo (ej. "¿qué es IGETC?") respóndelo brevemente en tu "reply" y no extraigas datos ni saltes de paso.
-- Responde SIEMPRE y ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin bloques de código markdown. Estructura exacta:
+RULES:
+- NEVER invent data the student didn't mention.
+- If something is ambiguous (e.g. "I have good grades" with no number), do NOT put it as a numeric GPA -- leave that field empty. Your reply can gently ask for a number without blocking the flow.
+- If the student asks an informational question (e.g. "what is IGETC?"), answer it briefly in "reply" and do not extract data or jump steps.
+- Respond ONLY with a single valid JSON object, no text before or after, no markdown fences. Exact shape:
 
 {
-  "reply": "string — mensaje corto para mostrar en el chat",
-  "extracted_data": { "campo": "valor" },
-  "next_step": "string con el id del paso o null",
+  "reply": "string -- short message to show in the chat",
+  "extracted_data": { "field": "value" },
+  "next_step": "string step id or null",
   "needs_clarification": false
 }
 
-No agregues ningún campo extra. No expliques tu razonamiento fuera del JSON.`;
+No extra fields. No reasoning outside the JSON.`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-//  System prompt para la FASE DE RESULTADOS (cuando el intake ya terminó).
-//  Aquí sí aplica el cerebro completo de la skill college-advisor.
-// ─────────────────────────────────────────────────────────────────────────
+// --------------------------------------------------------------------------
+//  RESULTS system prompt -- always English, always structured JSON, asks
+//  clarifying questions instead of guessing, and keeps the anti-hallucination
+//  rule (the single most important principle in this whole product) intact.
+// --------------------------------------------------------------------------
 function buildResultsSystemPrompt() {
-  return `Eres Covenant, un asesor universitario cálido y honesto que ayuda a estudiantes de EE.UU. a encontrar la universidad correcta. Atiendes dos tipos de estudiantes:
-1. TRANSFER — estudiantes de community college que quieren transferirse a una universidad de 4 años.
-2. HIGH SCHOOL — estudiantes de grados 9–12 que aplican como freshmen.
+  return `You are Obee, a warm and honest college advisor helping US students (high schoolers applying as freshmen, and community college students transferring to a 4-year university) find the right path.
 
-Recibirás el perfil COMPLETO del estudiante (ya recolectado por el intake) en el mensaje del usuario, en formato JSON. Tu trabajo es generar la recomendación final.
+LANGUAGE: Always respond in English in this phase, no matter what language the student used during the intake. This is a firm rule with no exceptions.
 
-IDIOMA: responde en el idioma dominante que el estudiante usó durante el intake. Si no es claro, usa inglés.
+You will receive the student's full profile as JSON in the first user message. Later messages may be follow-up questions -- you will also see your own prior JSON responses in the conversation history.
 
-ESTILO: voz natural, no de consultor robótico. Evita listas con viñetas genéricas cuando la prosa fluye mejor; sí usa tablas markdown para el listado de escuelas.
+ANTI-HALLUCINATION RULE (the most important principle in this product):
+Every factual claim falls into one of three buckets:
+1. VERIFIED -- backed by well-documented facts (e.g. California's ASSIST/TAG/IGETC system) -- state it with confidence.
+2. GENERAL -- broadly true but needs the student to verify -- state it, and say so.
+3. UNKNOWN -- you don't confidently know it -- say so plainly and point to the right source instead of guessing.
+NEVER invent specific course equivalencies, GPA cutoffs, or deadlines for schools outside California's ASSIST system. Admitting uncertainty builds trust; a confident wrong answer destroys it. A student in Ohio deserves the same honesty as one in California.
 
-REGLA ANTI-ALUCINACIÓN (la más importante):
-Cada afirmación factual cae en una de tres categorías:
-1. VERIFICADA — backed by datos conocidos del sistema ASSIST/TAG de California → dila con confianza.
-2. GENERAL — cierta en general pero necesita verificación → dila y dile al estudiante que la verifique en la fuente oficial.
-3. DESCONOCIDA — no la sabes con confianza → admítelo, no inventes cifras, cursos, GPAs de corte ni fechas límite para escuelas fuera del sistema bien documentado de California.
-Admitir incertidumbre CONSTRUYE confianza; una respuesta confiada y equivocada la destruye.
+NATIONAL COVERAGE: California has ASSIST.org, TAG, UC Transfer Pathways, and IGETC -- you can speak with real confidence there, and cite ASSIST.org specifically for California students. For the other 49 states, do NOT invent specific numbers -- instead point the student to Transferology.com and their target school's own official transfer/articulation office. Never tell a student outside California to "check ASSIST.org" -- that system doesn't cover them, and saying so would itself be a confident wrong answer.
 
-COBERTURA NACIONAL: California tiene ASSIST.org, TAG, UC Transfer Pathways, IGETC — puedes hablar con confianza razonable ahí. Para los demás 49 estados, usa principios generales y dirige siempre a Transferology.com y al sistema de articulación propio del estado; nunca inventes cifras específicas fuera de California.
+WHEN UNCERTAIN, ASK -- NEVER GUESS:
+If the student's profile is missing something you genuinely need for sound advice (no target major, no state, no GPA, contradictory info, etc.), do not paper over the gap with a generic answer. Set "mode":"clarify", ask ONE focused, warm question in "message", and leave schools/top_pick/gaps/next_steps empty. This applies on the very first results call just as much as on a follow-up -- a good clarifying question is more useful to the student than a shaky guess.
 
-SISTEMA DE TIERS (úsalo siempre):
-🟢 Safety — alta probabilidad, GPA/scores muy por encima del promedio de admitidos.
-🟡 Match — dentro del rango típico de admitidos.
-🔴 Reach — por debajo del promedio o carrera muy competitiva.
-⭐ Guaranteed/TAG — el estudiante cumple criterios explícitos de garantía (CA transfers).
+TIER SYSTEM (use consistently):
+- safety: strong likelihood, GPA/scores well above typical admits
+- match: within the typical admit range
+- reach: below typical admits, or a very competitive program
+- tag: student meets an explicit transfer guarantee (e.g. California TAG)
 
-FORMATO DE SALIDA: tabla con escuela, programa, tier, y nota de fit. Luego: Top Pick, Missing Courses/Gaps, Next Steps. Cierra siempre recordando verificar en ASSIST/Transferology/la página oficial de cada escuela y hablar con un consejero — Covenant es un punto de partida confiable, no la última palabra.
-
-Responde en texto plano conversacional (NO uses JSON aquí — esta fase es de salida final para el estudiante, no de extracción de datos).`;
+OUTPUT FORMAT -- respond ONLY with a single JSON object. No markdown fences, no text outside the JSON:
+{
+  "mode": "recommendation" | "clarify" | "answer",
+  "message": "string, always present -- the clarifying question (mode=clarify), a conversational reply (mode=answer, can be 2-4 sentences), or a brief 1-sentence warm intro (mode=recommendation)",
+  "summary": "string or null -- 1-2 sentence overview of the student's positioning, only for mode=recommendation",
+  "schools": [ { "name": "string", "program": "string", "tier": "safety|match|reach|tag", "note": "short 1-2 sentence fit note" } ],
+  "top_pick": { "name": "string", "reasoning": "string" } or null,
+  "gaps": ["short phrase naming a missing course or requirement, if any"],
+  "next_steps": ["short, concrete, actionable next step"]
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-//  RATE LIMITER en memoria (suficiente para el MVP; ver nota al final).
-// ─────────────────────────────────────────────────────────────────────────
+Use mode="recommendation" once you have enough to responsibly build a list. Use mode="clarify" when you need more first. Use mode="answer" for a simple follow-up that doesn't require rebuilding the whole list (e.g. "what about Berkeley?") -- in that case keep schools/gaps/next_steps as empty arrays and top_pick as null, and put your full answer in "message".
+
+Every next_steps item should be concrete and specific (e.g. "Verify the ECON 5 equivalency for Business majors on CCSF's official ASSIST.org page" rather than a vague "check requirements"). Weave a reminder to verify with the target school's official transfer office (and ASSIST.org specifically if California) and a counselor into next_steps itself -- the interface already shows a general disclaimer, so don't repeat it as a separate sentence.`;
+}
+
+// --------------------------------------------------------------------------
+//  In-memory rate limiter (good enough for MVP traffic).
+// --------------------------------------------------------------------------
 const ipHits = new Map();
 
 function rateLimited(ip) {
   const now = Date.now();
   const entry = ipHits.get(ip) || { count: 0, resetAt: now + CONFIG.RATE_LIMIT_WINDOW_MS };
-
   if (now > entry.resetAt) {
     entry.count = 0;
     entry.resetAt = now + CONFIG.RATE_LIMIT_WINDOW_MS;
   }
-
   entry.count++;
   ipHits.set(ip, entry);
-
   if (ipHits.size > 5000) {
     for (const [k, v] of ipHits) if (now > v.resetAt) ipHits.delete(k);
   }
-
   return entry.count > CONFIG.RATE_LIMIT_REQUESTS;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-//  Intenta parsear el JSON que devuelve Claude. Si por algún motivo viene
-//  envuelto en ```json o con texto alrededor, lo limpiamos antes de fallar.
-// ─────────────────────────────────────────────────────────────────────────
 function safeParseModelJSON(text) {
   const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
   try {
@@ -156,9 +149,9 @@ function safeParseModelJSON(text) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-//  HANDLER PRINCIPAL
-// ─────────────────────────────────────────────────────────────────────────
+// --------------------------------------------------------------------------
+//  MAIN HANDLER
+// --------------------------------------------------------------------------
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -191,18 +184,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'messages must be a non-empty array' });
   }
 
-  // ── Límite de turnos por conversación ──
   const userTurns = messages.filter((m) => m.role === 'user').length;
   if (userTurns > CONFIG.MAX_MESSAGES_PER_CONVERSATION) {
     return res.status(200).json({
       limitReached: true,
       reply:
         "We've reached this session's message limit. Save what you have and continue with your counselor, " +
-        'or start a new session. Remember to verify everything on assist.org and each official school site.',
+        'or start a new session. Remember to verify everything with your target school and a counselor.',
     });
   }
 
-  // ── Límite de tamaño del último mensaje ──
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   if (lastUser && typeof lastUser.content === 'string' && lastUser.content.length > CONFIG.MAX_INPUT_CHARS) {
     return res.status(400).json({
@@ -213,15 +204,9 @@ export default async function handler(req, res) {
 
   const isResultsPhase = mode === 'results';
 
-  // Para el modo intake, le inyectamos el contexto de paso/perfil en el último
-  // mensaje del usuario, para que Claude tenga todo lo que necesita en un
-  // solo turno (sin depender de mensajes de sistema intermedios).
   let outgoingMessages = messages;
   if (!isResultsPhase) {
-    const contextHeader = JSON.stringify({
-      current_step: currentStep || null,
-      profile: profile || {},
-    });
+    const contextHeader = JSON.stringify({ current_step: currentStep || null, profile: profile || {} });
     outgoingMessages = messages.map((m, idx) =>
       idx === messages.length - 1 && m.role === 'user'
         ? { ...m, content: `[CONTEXT]${contextHeader}[/CONTEXT]\n\n${m.content}` }
@@ -229,7 +214,7 @@ export default async function handler(req, res) {
     );
   }
 
-  const systemPrompt = isResultsPhase ? buildResultsSystemPrompt() : buildSystemPrompt();
+  const systemPrompt = isResultsPhase ? buildResultsSystemPrompt() : buildIntakeSystemPrompt();
 
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -251,7 +236,6 @@ export default async function handler(req, res) {
 
     if (!anthropicRes.ok) {
       console.error('Anthropic API error:', anthropicRes.status, data);
-
       const errType = (data && data.error && data.error.type) || '';
       const errMsg = (data && data.error && data.error.message) || '';
       const looksLikeCredit =
@@ -261,8 +245,8 @@ export default async function handler(req, res) {
         return res.status(200).json({
           limitReached: true,
           reply:
-            "Covenant has reached its usage limit for now 🙏 We're working on expanding it. " +
-            'Please save what you have and check back soon — thank you for your patience.',
+            "Obee has reached its usage limit for now \uD83D\uDE4F We're working on expanding it. " +
+            'Please save what you have and check back soon -- thank you for your patience.',
         });
       }
 
@@ -275,19 +259,31 @@ export default async function handler(req, res) {
     const rawText = (data.content || []).map((c) => c.text || '').join('');
 
     if (isResultsPhase) {
-      // Fase de resultados: texto plano, se devuelve tal cual.
-      return res.status(200).json({ reply: rawText });
+      const parsed = safeParseModelJSON(rawText);
+      if (!parsed) {
+        return res.status(200).json({
+          mode: 'answer',
+          message: rawText.slice(0, 500) || "Here's what I found.",
+          summary: null, schools: [], top_pick: null, gaps: [], next_steps: [],
+          parse_warning: true,
+        });
+      }
+      const allowedModes = ['recommendation', 'clarify', 'answer'];
+      return res.status(200).json({
+        mode: allowedModes.includes(parsed.mode) ? parsed.mode : 'answer',
+        message: parsed.message || '',
+        summary: parsed.summary || null,
+        schools: Array.isArray(parsed.schools) ? parsed.schools : [],
+        top_pick: parsed.top_pick || null,
+        gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],
+        next_steps: Array.isArray(parsed.next_steps) ? parsed.next_steps : [],
+      });
     }
 
-    // Fase de intake: se espera JSON estructurado.
     const parsed = safeParseModelJSON(rawText);
-
     if (!parsed) {
-      // Fallback defensivo: si el modelo no devolvió JSON válido, no rompemos
-      // la experiencia del estudiante — devolvemos el texto crudo como reply
-      // y no tocamos el estado del intake.
       return res.status(200).json({
-        reply: rawText.slice(0, 300) || "Got it, thanks for sharing that.",
+        reply: rawText.slice(0, 300) || 'Got it, thanks for sharing that.',
         extracted_data: {},
         next_step: null,
         needs_clarification: false,
@@ -311,9 +307,6 @@ export default async function handler(req, res) {
 }
 
 // ============================================================================
-//  NOTA PARA CUANDO HAYA TRÁFICO REAL:
-//  El rate limiter en memoria no es consistente entre instancias serverless
-//  de Vercel. Para el MVP de 50 usuarios es un filtro "suficientemente bueno".
-//  Si el tráfico crece, migrar a Upstash Redis (tiene capa gratis) para un
-//  límite consistente entre instancias.
+//  NOTE: the in-memory rate limiter isn't consistent across serverless
+//  instances. Fine for MVP traffic; migrate to Upstash Redis if traffic grows.
 // ============================================================================

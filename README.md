@@ -1,4 +1,4 @@
-# Covenant
+# Obee
 
 AI-powered college advisor for high school and community college students.
 *Find Your Path* — the intake-to-recommendation flow — is the first tool live.
@@ -6,7 +6,7 @@ AI-powered college advisor for high school and community college students.
 ## Structure
 
 ```
-covenant/
+obee/
 ├── api/
 │   └── chat.js          # Serverless proxy to the Anthropic API (key never reaches the browser)
 ├── public/
@@ -59,5 +59,5 @@ Environment Variables — it is never in the codebase.
 - 20 user turns max per session
 - 4000 character max per message
 - 30 requests/minute per IP (in-memory; consider Upstash Redis if traffic grows)
-- Graceful "Covenant reached its limit" message when credits run out
+- Graceful "Obee reached its limit" message when credits run out
 - Fixed server-side system prompt — the frontend cannot override it

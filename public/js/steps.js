@@ -1,5 +1,5 @@
 // ============================================================================
-//  Covenant — Step definitions (the "brain" of the intake flow)
+//  Obee — Step definitions (the "brain" of the intake flow)
 // ----------------------------------------------------------------------------
 //  Each step describes ONE screen of the Duolingo-style intake. The engine
 //  (engine.js) reads this array and renders the right input type for each.
@@ -9,16 +9,94 @@
 //    'slider'       -> one slider (GPA, units)
 //    'dual-slider'  -> two sliders stacked (CC: cumulative + transferable GPA)
 //    'card-stack'   -> repeatable mini-form cards (courses, AP/IB classes)
-//    'dropdown'     -> text input + state dropdown
+//    'dropdown'     -> state select only (HS) OR state + cascading college
+//                       picker (CC) when cascadeCollege:true
 //    'freeform-only'-> no quick options, just the chat field (extracurriculars, major)
 //    'score-card'   -> small white card with 2 number inputs (SAT/ACT)
+//
+//  cardFields[].type:
+//    'text'         -> free text input
+//    'autocomplete' -> free text input + filtered suggestion list (still
+//                       100% free-typeable -- suggestions are a convenience,
+//                       never a restriction)
+//    'select'       -> native <select> from a fixed options array
 // ============================================================================
+
+// Standard letter grades, high to low -- used for every course grade select.
+const GRADE_OPTIONS = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F'];
+
+const HS_COURSE_TYPE_OPTIONS = ['Regular', 'Honors', 'AP', 'IB'];
+const CC_COURSE_TYPE_OPTIONS = ['Transfer-level', 'Honors', 'AP credit', 'IB credit'];
+
+// Curated course-name suggestions. This is a static list from general
+// knowledge of common US course catalogs -- NOT a live database -- so
+// students can always type their own course instead (the input never
+// restricts free text, this only speeds up typing).
+const HS_COURSE_SUGGESTIONS = [
+  'English 9', 'English 10', 'English 11', 'English 12', 'AP English Language', 'AP English Literature',
+  'Algebra I', 'Geometry', 'Algebra II', 'Pre-Calculus', 'AP Calculus AB', 'AP Calculus BC', 'AP Statistics',
+  'Biology', 'Chemistry', 'Physics', 'AP Biology', 'AP Chemistry', 'AP Physics 1', 'AP Physics 2', 'AP Environmental Science',
+  'World History', 'US History', 'AP US History', 'AP World History', 'Government', 'AP US Government', 'Economics', 'AP Economics', 'Psychology', 'AP Psychology',
+  'Spanish I', 'Spanish II', 'Spanish III', 'AP Spanish Language', 'French I', 'French II', 'AP French Language',
+  'AP Computer Science Principles', 'AP Computer Science A', 'Art', 'Band', 'Journalism', 'Yearbook', 'Health', 'PE',
+];
+
+const CC_COURSE_SUGGESTIONS = [
+  'English Composition', 'Critical Thinking & Composition', 'Public Speaking',
+  'College Algebra', 'Pre-Calculus', 'Calculus I', 'Calculus II', 'Statistics',
+  'Biology', 'Chemistry', 'Physics', 'Anatomy & Physiology',
+  'Microeconomics', 'Macroeconomics', 'US History', 'World History', 'Political Science',
+  'Psychology', 'Sociology', 'Spanish', 'French',
+  'Intro to Business', 'Financial Accounting', 'Managerial Accounting', 'Intro to Computer Science',
+];
+
+// Curated, NON-EXHAUSTIVE list of well-known community colleges per state.
+// This is from general knowledge, not a verified live database -- "Enter
+// manually" is always offered and should be used for anything not listed.
+const COMMUNITY_COLLEGES_BY_STATE = {
+  California: [
+    'City College of San Francisco', 'De Anza College', 'Foothill College', 'Santa Monica College',
+    'Diablo Valley College', 'Pasadena City College', 'Santa Barbara City College', 'San Diego City College',
+    'Mt. San Antonio College', 'American River College', 'Sacramento City College', 'Orange Coast College',
+    'Irvine Valley College', 'Cerritos College', 'El Camino College', 'Long Beach City College',
+  ],
+  Texas: [
+    'Austin Community College', 'Houston Community College', 'Dallas College', 'San Jacinto College',
+    'Lone Star College', 'Tarrant County College', 'Collin College', 'Alamo Colleges (San Antonio)',
+  ],
+  Florida: [
+    'Miami Dade College', 'Broward College', 'Valencia College', 'Santa Fe College',
+    'St. Petersburg College', 'Palm Beach State College', 'Hillsborough Community College',
+  ],
+  'New York': [
+    'LaGuardia Community College', 'Borough of Manhattan Community College', 'Nassau Community College',
+    'Suffolk County Community College', 'Hudson Valley Community College', 'Monroe Community College',
+  ],
+  Illinois: [
+    'Harold Washington College', 'College of DuPage', 'Triton College', 'Oakton College', 'Elgin Community College',
+  ],
+  Washington: [
+    'Bellevue College', 'Seattle Central College', 'North Seattle College', 'Highline College', 'Green River College',
+  ],
+  Arizona: [
+    'Phoenix College', 'Mesa Community College', 'Pima Community College', 'Scottsdale Community College',
+  ],
+  Massachusetts: [
+    'Bunker Hill Community College', 'Massachusetts Bay Community College', 'Middlesex Community College',
+  ],
+  'North Carolina': [
+    'Wake Technical Community College', 'Central Piedmont Community College', 'Durham Technical Community College',
+  ],
+  Virginia: [
+    'Northern Virginia Community College', 'J. Sargeant Reynolds Community College', 'Tidewater Community College',
+  ],
+};
 
 const STEPS = {
 
-  // ────────────────────────────────────────────────────────────────────────
-  // ENTRY POINT — student type selector
-  // ────────────────────────────────────────────────────────────────────────
+  // --------------------------------------------------------------------
+  // ENTRY POINT -- student type selector
+  // --------------------------------------------------------------------
   student_type: {
     id: 'student_type',
     title: 'Let\u2019s start!',
@@ -29,13 +107,12 @@ const STEPS = {
       { value: 'high_school', label: 'I am a High school student' },
       { value: 'community_college', label: 'I am a Community College student' },
     ],
-    // Branches the whole flow.
     branch: { high_school: 'hs_grade', community_college: 'cc_college_name' },
   },
 
-  // ────────────────────────────────────────────────────────────────────────
+  // --------------------------------------------------------------------
   // HIGH SCHOOL FLOW (10 steps)
-  // ────────────────────────────────────────────────────────────────────────
+  // --------------------------------------------------------------------
   hs_grade: {
     id: 'hs_grade', flow: 'hs', order: 1,
     title: 'Quick question:',
@@ -68,9 +145,9 @@ const STEPS = {
     field: 'card-stack',
     profileKey: 'courses',
     cardFields: [
-      { key: 'name', label: 'Class Name', placeholder: 'e.g U.S History' },
-      { key: 'grade', label: 'Grade', placeholder: 'A/B/C/D/F (+/-)' },
-      { key: 'type', label: 'Course Type', placeholder: 'Regular/ Honors/ AP/ IB' },
+      { key: 'name', label: 'Class Name', placeholder: 'e.g U.S History', type: 'autocomplete', suggestions: HS_COURSE_SUGGESTIONS },
+      { key: 'grade', label: 'Grade', placeholder: 'Select grade', type: 'select', options: GRADE_OPTIONS },
+      { key: 'type', label: 'Course Type', placeholder: 'Select type', type: 'select', options: HS_COURSE_TYPE_OPTIONS },
     ],
     next: 'hs_extracurriculars',
   },
@@ -116,6 +193,7 @@ const STEPS = {
     title: 'Where do you call home?',
     subtitle: 'Your state of residency affects crucial factors such as in-state tuition, grant eligibility and more...',
     field: 'dropdown',
+    stateOnly: true,
     profileKey: 'state',
     next: 'hs_out_of_state',
   },
@@ -129,7 +207,6 @@ const STEPS = {
     options: [
       { value: 'in_state_only', label: 'I want to stay in my state' },
       { value: 'explore', label: 'I want to explore the country' },
-      { value: 'anywhere', label: 'Anywhere in the country' },
     ],
     skippable: true,
     next: 'hs_first_gen',
@@ -164,16 +241,16 @@ const STEPS = {
     next: 'thinking',
   },
 
-  // ────────────────────────────────────────────────────────────────────────
-  // COMMUNITY COLLEGE FLOW (12 steps)
-  // ────────────────────────────────────────────────────────────────────────
+  // --------------------------------------------------------------------
+  // COMMUNITY COLLEGE FLOW (13 steps)
+  // --------------------------------------------------------------------
   cc_college_name: {
     id: 'cc_college_name', flow: 'cc', order: 1,
     title: 'Which community college do you attend?',
     subtitle: 'This helps me determine which articulation agreement applies to you.',
     field: 'dropdown',
+    cascadeCollege: true,
     profileKey: 'community_college',
-    dropdownLabel: 'Enter your community college',
     next: 'cc_gpa',
   },
 
@@ -219,9 +296,9 @@ const STEPS = {
     field: 'card-stack',
     profileKey: 'courses',
     cardFields: [
-      { key: 'name', label: 'Class Name', placeholder: 'e.g U.S History' },
-      { key: 'grade', label: 'Grade', placeholder: 'A/B/C/D/F (+/-)' },
-      { key: 'college', label: 'College', placeholder: 'Current or previous college' },
+      { key: 'name', label: 'Class Name', placeholder: 'e.g U.S History', type: 'autocomplete', suggestions: CC_COURSE_SUGGESTIONS },
+      { key: 'grade', label: 'Grade', placeholder: 'Select grade', type: 'select', options: GRADE_OPTIONS },
+      { key: 'college', label: 'College', placeholder: 'Current or previous college', type: 'text' },
     ],
     next: 'cc_ap_ib',
   },
@@ -233,9 +310,9 @@ const STEPS = {
     field: 'card-stack',
     profileKey: 'ap_ib_courses',
     cardFields: [
-      { key: 'name', label: 'Class Name', placeholder: 'e.g U.S History' },
-      { key: 'grade', label: 'Grade', placeholder: 'A/B/C/D/F (+/-)' },
-      { key: 'type', label: 'Course Type', placeholder: 'Honors/ AP/ IB' },
+      { key: 'name', label: 'Class Name', placeholder: 'e.g U.S History', type: 'autocomplete', suggestions: HS_COURSE_SUGGESTIONS },
+      { key: 'grade', label: 'Grade', placeholder: 'Select grade', type: 'select', options: GRADE_OPTIONS },
+      { key: 'type', label: 'Course Type', placeholder: 'Select type', type: 'select', options: CC_COURSE_TYPE_OPTIONS },
     ],
     skippable: true,
     next: 'cc_igetc',
@@ -305,7 +382,6 @@ const STEPS = {
     options: [
       { value: 'in_state_only', label: 'I want to stay in my state' },
       { value: 'explore', label: 'I want to explore the country' },
-      { value: 'anywhere', label: 'Anywhere in the country' },
     ],
     skippable: true,
     next: 'cc_first_gen',
@@ -341,7 +417,6 @@ const STEPS = {
   },
 };
 
-// Quick lookup: ordered step id list per flow (used for progress + step jumping)
 const FLOW_ORDER = {
   hs: ['hs_grade', 'hs_gpa', 'hs_courses', 'hs_extracurriculars', 'hs_major', 'hs_college_type', 'hs_state', 'hs_out_of_state', 'hs_first_gen', 'hs_test_scores'],
   cc: ['cc_college_name', 'cc_gpa', 'cc_units', 'cc_major', 'cc_courses', 'cc_ap_ib', 'cc_igetc', 'cc_extracurriculars', 'cc_transfer_timeline', 'cc_specific_schools', 'cc_out_of_state', 'cc_first_gen', 'cc_test_scores'],

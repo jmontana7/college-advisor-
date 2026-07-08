@@ -1,41 +1,48 @@
 // ============================================================================
-//  Covenant — App controller
+//  Obee -- App controller
 // ----------------------------------------------------------------------------
 //  Owns the shared state (profile + currentStepId + conversation log),
 //  drives navigation between steps, and talks to /api/chat.js.
 //
-//  State persists in sessionStorage only (no accounts, no login — per the
-//  COPPA/FERPA decision in the project brief). Clearing the tab clears it.
+//  State persists in sessionStorage only (no accounts, no login).
 // ============================================================================
 
 (function () {
-  const STORAGE_KEY = 'covenant_session_v1';
+  const STORAGE_KEY = 'obee_session_v1';
 
   const state = {
-    currentStepId: 'student_type',
-    history: [], // stack of previous step ids, for Back
-    profile: {}, // flat profile object built across the whole intake
-    stepAnswers: {}, // raw per-step UI state, so Back restores what was typed/selected
-    conversation: [], // {role, content} pairs sent to /api/chat for intake JSON mode
+    currentStepId: 'home',
+    history: [],
+    profile: {},
+    stepAnswers: {},
+    conversation: [],
     turnCount: 0,
   };
 
   function loadState() {
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw) Object.assign(state, JSON.parse(raw));
-    } catch { /* ignore corrupt storage */ }
+      if (raw) {
+        Object.assign(state, JSON.parse(raw));
+        return true;
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+    return false;
   }
 
   function saveState() {
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch { /* storage full or unavailable — fail silently, not fatal */ }
+    } catch {
+      /* storage full or unavailable -- not fatal */
+    }
   }
 
   Engine.init(state);
 
-  // ── Networking ──
+  // ---- Networking ----
   async function callChatApi(payload) {
     const res = await fetch('/api/chat', {
       method: 'POST',
@@ -47,11 +54,14 @@
     return data;
   }
 
-  // ── Step lookup helpers ──
-  function getStep(id) { return STEPS[id]; }
+  function getStep(id) {
+    return STEPS[id];
+  }
 
   function goTo(stepId, { pushHistory = true } = {}) {
-    if (pushHistory && state.currentStepId) state.history.push(state.currentStepId);
+    if (pushHistory && state.currentStepId && state.currentStepId !== 'home') {
+      state.history.push(state.currentStepId);
+    }
     state.currentStepId = stepId;
     saveState();
     render();
@@ -63,10 +73,19 @@
       state.currentStepId = prev;
       saveState();
       render();
+    } else {
+      goHome();
     }
   }
 
-  // ── Apply extracted/structured data into the flat profile ──
+  function goHome() {
+    state.currentStepId = 'home';
+    state.history = [];
+    saveState();
+    render();
+  }
+
+  // ---- Apply extracted/structured data into the flat profile ----
   function applyToProfile(step, payload) {
     const key = step.profileKey;
     if (!key) return;
@@ -83,8 +102,6 @@
       state.profile[key] = payload.freeformText;
     }
 
-    // Freeform text is ALWAYS preserved for holistic context, even on steps
-    // that also have a structured answer — nothing the student wrote is lost.
     if (payload.freeformText) {
       state.profile._raw_notes = state.profile._raw_notes || [];
       state.profile._raw_notes.push({ step: step.id, text: payload.freeformText });
@@ -98,7 +115,7 @@
     return step.next;
   }
 
-  // ── Free-text interpretation via backend (JSON mode) ──
+  // ---- Free-text interpretation via backend (JSON mode) ----
   async function interpretFreeform(step, freeformText) {
     if (!freeformText) return null;
 
@@ -126,13 +143,18 @@
     }
   }
 
-  // ── Rendering ──
+  // ---- Rendering ----
   function render() {
     const stepId = state.currentStepId;
 
+    if (stepId === 'home') {
+      Engine.renderHome(() => goTo('student_type'));
+      return;
+    }
+
     if (stepId === 'thinking') {
       Engine.renderThinking();
-      setTimeout(runResults, 1400);
+      setTimeout(() => goTo('results'), 1400);
       return;
     }
 
@@ -153,10 +175,9 @@
     }
 
     if (stepId === 'student_type') {
-      // Renders as the home screen's "Find your path" already routes here;
-      // this is the actual selector screen.
       Engine.renderQuestion(step, state.stepAnswers[stepId], {
-        canGoBack: false,
+        canGoBack: true,
+        onBack: goHome,
         onContinue: (payload) => handleContinue(step, payload),
       });
       return;
@@ -171,11 +192,10 @@
     });
   }
 
-  async function handleInfoRequest(step, optionValue) {
-    // e.g. "What is IGETC?" — informational, doesn't extract data or advance.
+  function handleInfoRequest(step, optionValue) {
     const infoCopy = {
       what_is_igetc:
-        'IGETC (Intersegmental General Education Transfer Curriculum) is a set of courses CA community college students can complete to satisfy lower-division general education requirements at most UCs and CSUs. Check assist.org for your college\u2019s specific IGETC course list.',
+        'IGETC (Intersegmental General Education Transfer Curriculum) is a set of courses CA community college students can complete to satisfy lower-division general education requirements at most UCs and CSUs. Check ASSIST.org for your college\u2019s specific IGETC course list.',
     };
     alert(infoCopy[optionValue] || 'More info coming soon.');
   }
@@ -213,68 +233,74 @@
   }
 
   async function renderResultsScreen() {
-    if (state.resultsText) {
-      mountResults(state.resultsText);
+    if (state.resultsData) {
+      mountResults(state.resultsData);
       return;
     }
     Engine.renderThinking();
     try {
       const data = await callChatApi({
         mode: 'results',
+        resultsPhase: 'initial',
         messages: [{ role: 'user', content: JSON.stringify(state.profile) }],
       });
-      state.resultsText = data.reply || "We couldn't generate your results right now. Please try again.";
+      if (data.limitReached) {
+        state.limitMessage = data.reply;
+        goTo('limit_reached');
+        return;
+      }
+      state.resultsData = data;
       saveState();
-      mountResults(state.resultsText);
+      mountResults(data);
     } catch (err) {
       console.error(err);
-      state.resultsText = "We couldn't generate your results right now. Please try again in a moment.";
-      mountResults(state.resultsText);
+      state.resultsData = {
+        mode: 'answer',
+        message: "We couldn't generate your results right now. Please try again in a moment.",
+        summary: null, schools: [], top_pick: null, gaps: [], next_steps: [],
+      };
+      mountResults(state.resultsData);
     }
   }
 
-  function mountResults(text) {
-    Engine.renderResults(text, async (followupText, onReply) => {
+  function mountResults(data) {
+    Engine.renderResults(data, async (followupText, onReply) => {
       state.turnCount++;
       const followupMessages = [
         { role: 'user', content: JSON.stringify(state.profile) },
-        { role: 'assistant', content: state.resultsText },
+        { role: 'assistant', content: JSON.stringify(state.resultsData) },
         { role: 'user', content: followupText },
       ];
       try {
-        const data = await callChatApi({ mode: 'results', messages: followupMessages });
-        if (data.limitReached) {
-          onReply(data.reply);
+        const reply = await callChatApi({ mode: 'results', resultsPhase: 'followup', messages: followupMessages });
+        if (reply.limitReached) {
+          onReply({ mode: 'answer', message: reply.reply });
           return;
         }
-        onReply(data.reply || "I'm not sure how to answer that right now.");
+        if (reply.mode === 'recommendation') {
+          state.resultsData = reply;
+          saveState();
+        }
+        onReply(reply);
       } catch {
-        onReply('Something went wrong reaching Covenant. Please try again.');
+        onReply({ mode: 'answer', message: 'Something went wrong reaching Obee. Please try again.' });
       }
     });
   }
 
-  async function runResults() {
-    goTo('results');
-  }
-
-  // ── Boot ──
+  // ---- Boot ----
   function boot() {
-    loadState();
-
-    if (state.currentStepId === 'student_type' && state.history.length === 0 && !state.profile.student_type) {
-      Engine.renderHome(() => goTo('student_type'));
-      document.getElementById('header-cta').onclick = () => goTo('student_type');
-      return;
+    const hadStoredState = loadState();
+    if (!hadStoredState) {
+      state.currentStepId = 'home';
     }
-
     render();
   }
 
+  const logoBtn = document.getElementById('logo-home-btn');
+  if (logoBtn) logoBtn.addEventListener('click', goHome);
+
   document.getElementById('header-cta').addEventListener('click', () => goTo('student_type'));
-  document.getElementById('tools-btn').addEventListener('click', () => {
-    alert('Essay Validator and AI Major Quiz — coming soon!');
-  });
 
   boot();
 })();

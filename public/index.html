@@ -3,39 +3,128 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Covenant — Find Your Path</title>
+<title>Obee -- Find Your Path</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montaga&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
 
-<!-- ============ HEADER (persistente en todas las pantallas del intake) ============ -->
+<!-- ============ HEADER (persistent across every screen) ============ -->
 <header id="app-header">
-  <div class="logo">
-    <span class="logo-mark">🪐</span>
-  </div>
-  <button class="tools-btn" id="tools-btn" type="button">
-    Tools <span class="caret">▾</span>
+  <button class="header-logo-btn" id="logo-home-btn" type="button" aria-label="Obee home">
+    <img class="header-logo-img" src="assets/obee-wordmark.jpg" alt="Obee">
   </button>
   <button class="cta-pill" id="header-cta" type="button">Find your path</button>
 </header>
 
-<!-- ============ MAIN APP ROOT — todo se renderiza aquí vía JS ============ -->
+<!-- ============ MAIN APP ROOT -- everything renders here via JS ============ -->
 <main id="app-root"></main>
 
-<!-- ============ TEMPLATES (clonados por el motor de pasos) ============ -->
+<!-- ============ TEMPLATES ============ -->
 
 <template id="tpl-home">
   <section class="screen home-screen">
-    <p class="eyebrow">✦ Powered by Claude AI</p>
-    <h1>Find your <em>perfect</em><br>college match</h1>
-    <p class="hero-sub">Helping high school and community college students find their perfect university match.</p>
-    <blockquote class="mandela-quote">
-      "Education is the most powerful weapon which you can use to change the world"
-      <cite>— Nelson Mandela</cite>
-    </blockquote>
-    <button class="cta-pill cta-pill--lg" id="home-find-path" type="button">Find your path</button>
+
+    <!-- HERO -->
+    <div class="hero">
+      <h1 class="hero-quote">&ldquo;Education is the most powerful weapon <span class="quote-regular">which you can use to change the world&rdquo;</span></h1>
+      <p class="hero-cite">-Nelson Mandela-</p>
+      <p class="hero-sub">Helping high school and community college students find their perfect university match.</p>
+      <button class="cta-pill cta-pill--soft js-start" type="button">Find your path</button>
+    </div>
+
+    <!-- APP CARD 1 -->
+    <div class="app-card">
+      <div class="app-card-main">
+        <img class="card-icon" src="assets/obee-obelisk-transparent.png" alt="">
+        <h3 class="card-title">Lorem ipsum dolor sit amet, consectetur.</h3>
+        <p class="card-body">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+        <button class="cta-pill cta-pill--dark js-start" type="button">Find your path</button>
+      </div>
+      <div class="app-card-panel">
+        <img class="card-icon card-icon--onDark" src="assets/obee-obelisk-transparent.png" alt="">
+        <p>Im going to put screenshots of the app here</p>
+      </div>
+    </div>
+
+    <!-- APP CARD 2 -->
+    <div class="app-card">
+      <div class="app-card-main">
+        <img class="card-icon" src="assets/obee-obelisk-transparent.png" alt="">
+        <div class="features-grid">
+          <span>&#x1F9E9; Integrated</span><span>&#x2B50; Secure</span>
+          <span>&#x1F91D; Open</span><span>&#x1F6E1;&#xFE0F; Reliable</span>
+          <span>&#x1F4B0; Affordable</span><span>&#x1F441;&#xFE0F; Honest</span>
+        </div>
+      </div>
+      <div class="app-card-panel">
+        <img class="card-icon card-icon--onDark" src="assets/obee-obelisk-transparent.png" alt="">
+        <button class="cta-pill js-start" type="button">Find your path</button>
+      </div>
+    </div>
+
+    <!-- FLOW DIAGRAM -->
+    <div class="flow-section">
+      <svg class="flow-svg" viewBox="0 0 1000 460" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M 150 60 C 260 60, 220 150, 340 150" class="flow-curve"/>
+        <path d="M 560 150 C 660 150, 620 250, 720 250" class="flow-curve"/>
+        <path d="M 780 290 C 780 350, 780 370, 620 400" class="flow-curve"/>
+        <path d="M 400 400 L 560 400" class="flow-curve flow-arrow-line" marker-end="url(#flowArrow)"/>
+        <defs>
+          <marker id="flowArrow" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" class="flow-arrow-head"/>
+          </marker>
+        </defs>
+      </svg>
+      <span class="flow-pill" style="left:5%; top:8%;">Type your prompt</span>
+      <span class="flow-pill" style="left:32%; top:28%;">Double check with a second opinion</span>
+      <span class="flow-pill" style="left:68%; top:50%;">Explore your options</span>
+      <span class="flow-pill" style="left:18%; top:80%;">Refine and trust your gut</span>
+      <span class="flow-final" style="left:56%; top:80%;">Launch a successful career &#x1F393;</span>
+    </div>
+
+    <!-- FAQ -->
+    <div class="faq-section">
+      <h2 class="faq-title">Frequently<br>asked questions</h2>
+      <div class="faq-list">
+        <div class="faq-row">
+          <div class="faq-row-head"><span>How much does it cost?</span><span class="faq-chevron">&#x2304;</span></div>
+          <div class="faq-answer">Obee is completely free for students. No login, no accounts, no personal data collection required.</div>
+        </div>
+        <div class="faq-row">
+          <div class="faq-row-head"><span>Does it replace traditional counseling?</span><span class="faq-chevron">&#x2304;</span></div>
+          <div class="faq-answer">No -- Obee is a trustworthy starting point, not the final word. We always recommend verifying with your school counselor and each college's official site.</div>
+        </div>
+        <div class="faq-row">
+          <div class="faq-row-head"><span>Is this actually useful or just another AI gimmick?</span><span class="faq-chevron">&#x2304;</span></div>
+          <div class="faq-answer">Obee is built around an anti-hallucination principle: we only state what's verified, flag what's general, and admit what's unknown -- rather than guessing.</div>
+        </div>
+        <div class="faq-row">
+          <div class="faq-row-head"><span>Is my/my child&rsquo;s information safe and private?</span><span class="faq-chevron">&#x2304;</span></div>
+          <div class="faq-answer">Yes. We don't require accounts or store personally identifiable information -- your session data stays in your browser.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINAL CTA -->
+    <div class="final-cta">
+      <div class="final-card">
+        <img class="final-icon" src="assets/obee-obelisk-transparent.png" alt="">
+        <h2>Ready to launch your future?</h2>
+        <button class="cta-pill cta-pill--dark js-start" type="button">Find your path</button>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+      <img class="footer-logo" src="assets/obee-full-lockup.png" alt="Obee -- College Advisor">
+      <div class="socials">
+        <span class="social-dot"></span><span class="social-dot"></span><span class="social-dot"></span>
+      </div>
+      <p class="footer-copy">&copy; 2026, built by a student, for students.</p>
+    </footer>
+
   </section>
 </template>
 
@@ -49,13 +138,13 @@
     <div class="freeform-dock">
       <div class="freeform-box">
         <textarea class="freeform-input" rows="1" placeholder="Anything else you'd like to share?"></textarea>
-        <button class="mic-btn" type="button" aria-label="Voice input">🎙️</button>
+        <button class="mic-btn" type="button" aria-label="Voice input">&#x1F399;&#xFE0F;</button>
       </div>
     </div>
     <div class="nav-row">
-      <button class="back-btn" type="button">← Back</button>
+      <button class="back-btn" type="button">&#8592; Back</button>
       <button class="skip-link" type="button" style="display:none;">Skip</button>
-      <button class="continue-btn" type="button" disabled>Continue →</button>
+      <button class="continue-btn" type="button" disabled>Continue &#8594;</button>
     </div>
   </section>
 </template>
@@ -63,6 +152,7 @@
 <template id="tpl-thinking">
   <section class="screen thinking-screen">
     <div class="thinking-ring"></div>
+    <p class="thinking-icon">&#x1F393;</p>
     <p class="thinking-label">Thinking...</p>
   </section>
 </template>
@@ -70,18 +160,18 @@
 <template id="tpl-results">
   <section class="screen results-screen">
     <div class="results-header">
-      <p class="eyebrow">✦ Your matches</p>
+      <p class="eyebrow">&#x2726; Your matches</p>
       <h2>Here's your college list</h2>
     </div>
     <div class="results-body"></div>
     <div class="results-disclaimer">
-      Always verify on <strong>assist.org</strong> and each school's official site. Talk to your counselor before making final decisions.
+      Always verify with your target school's official transfer agreement or admissions office, and talk to your counselor before making final decisions.
     </div>
     <div class="results-chat-dock">
       <div class="results-chat-messages"></div>
       <div class="freeform-box">
         <textarea class="results-chat-input" rows="1" placeholder="Ask a follow-up question..."></textarea>
-        <button class="send-btn" type="button" aria-label="Send">➤</button>
+        <button class="send-btn" type="button" aria-label="Send">&#10148;</button>
       </div>
     </div>
   </section>
@@ -89,15 +179,10 @@
 
 <template id="tpl-limit-reached">
   <section class="screen limit-screen">
-    <p class="limit-icon">🌙</p>
-    <h2>Covenant reached its limit</h2>
+    <p class="limit-icon">&#x1F319;</p>
+    <h2>Obee reached its limit</h2>
     <p class="limit-message"></p>
   </section>
-</template>
-
-<!-- Card option button template (used inside question screens) -->
-<template id="tpl-option-btn">
-  <button class="opt-btn" type="button"></button>
 </template>
 
 <script src="js/steps.js"></script>
