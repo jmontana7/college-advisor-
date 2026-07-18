@@ -1705,6 +1705,10 @@ textarea, select, input { font-family: inherit; }
 }
 .continue-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--gloss-shadow-dark), 0 14px 30px rgba(0,0,0,0.2); }
 .continue-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+/* Loading state also sets disabled (to block double-submits), but it
+   should read as "working", not "unavailable" -- keep it fully opaque. */
+.continue-btn.is-loading:disabled { opacity: 1; cursor: wait; }
+.continue-btn .chat-typing-dots span { background: #fff; }
 
 /* ============================================================
    THINKING SCREEN

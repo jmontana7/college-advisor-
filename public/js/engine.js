@@ -829,13 +829,46 @@ const Engine = (() => {
       skipBtn.addEventListener('click', () => callbacks.onSkip && callbacks.onSkip());
     }
 
-    continueBtn.addEventListener('click', () => {
+    const continueIdleLabel = continueBtn.textContent;
+
+    continueBtn.addEventListener('click', async () => {
       const payload = {
         value: localSelection,
         structured: localStructured,
         freeformText: freeformInput.value.trim(),
       };
-      callbacks.onContinue(payload);
+      // Typed freeform text means onContinue awaits a real /api/chat call
+      // before it can decide the next step -- with nothing shown in the
+      // meantime this just looks frozen, so show the same "thinking" cue
+      // used in the results chat. Skipped entirely when there's no
+      // freeform text, since then onContinue resolves synchronously (no
+      // network call) and the whole node gets replaced by the next step
+      // before this would ever be visible.
+      const isLoading = Boolean(payload.freeformText);
+      if (isLoading) {
+        continueBtn.disabled = true;
+        continueBtn.classList.add('is-loading');
+        backBtn.disabled = true;
+        continueBtn.innerHTML = '';
+        const dots = document.createElement('span');
+        dots.className = 'chat-typing-dots';
+        dots.appendChild(document.createElement('span'));
+        dots.appendChild(document.createElement('span'));
+        dots.appendChild(document.createElement('span'));
+        continueBtn.appendChild(dots);
+      }
+      await callbacks.onContinue(payload);
+      // If onContinue advanced to the next step, this node (and this
+      // button) is already detached -- these are then no-ops on a node
+      // nobody sees. If it returned early instead (e.g. a blocked/
+      // moderated message), this restores the button on the same screen.
+      if (isLoading) {
+        continueBtn.disabled = false;
+        continueBtn.classList.remove('is-loading');
+        backBtn.disabled = false;
+        continueBtn.textContent = continueIdleLabel;
+        refreshContinueState();
+      }
     });
 
     refreshContinueState();
