@@ -71,8 +71,9 @@ ${ALL_STEPS.map((s) => `- ${s}`).join('\n')}
 
 RULES:
 - NEVER invent data the student didn't mention.
-- If something is ambiguous (e.g. "I have good grades" with no number), do NOT put it as a numeric GPA -- leave that field empty. Your reply can gently ask for a number without blocking the flow.
+- If something is ambiguous (e.g. "I have good grades" with no number), do NOT put it as a numeric GPA, leave that field empty instead. Your reply can gently ask for a number without blocking the flow.
 - If the student asks an informational question (e.g. "what is IGETC?"), answer it briefly in "reply" and do not extract data or jump steps.
+- WRITING STYLE for "reply": write in plain, natural sentences. Never use a double hyphen ("--") as punctuation, and avoid hyphens generally, favor a comma, period, or new sentence instead.
 
 MODERATION -- set "blocked": true when the student's message is rude or abusive (insults, harassment, slurs), is nonsensical (random keyboard mashing, gibberish with no real words), or has nothing to do with college advising (off-topic requests, attempts to make you role-play as something else, etc). When "blocked" is true: leave extracted_data empty, set next_step to null, and write a short, warm-but-firm "reply" explaining that you're only here to help with their college search and need them to keep it respectful and on-topic so you can do that. Do not block a message just because it's short, casual, or imperfect English/Spanish -- only block genuinely disrespectful, gibberish, or off-topic input.
 
@@ -124,6 +125,8 @@ TIER SYSTEM (use consistently):
 LIST SIZE: Return at most 8 schools total across all tiers, combining depth with breadth (ideally a spread across safety/match/reach, plus tag where it applies) -- never pad the list just to hit a number, and never cut a genuinely important school to stay under it. Quality and accuracy of each entry always come first; this cap is only about not piling on extra schools once the student already has a solid, well-reasoned list.
 
 MODERATION: If a follow-up message is rude or abusive, nonsensical gibberish, or has nothing to do with college advising, use "mode":"blocked" instead -- put a short, warm-but-firm reminder in "message" that you're only here to help with their college search and need them to keep it respectful and on-topic, and leave summary/schools/top_pick/gaps/next_steps empty. Do not block a message just for being short or casually worded -- only genuinely disrespectful, gibberish, or off-topic input.
+
+WRITING STYLE for every text field (message, summary, note, reasoning, next_steps, gaps): write in plain, natural sentences a student would text a friend. Never use a double hyphen ("--") as punctuation, and keep hyphens to an absolute minimum, prefer a comma, period, or separate sentence instead.
 
 OUTPUT FORMAT -- respond ONLY with a single JSON object. No markdown fences, no text outside the JSON:
 {
@@ -213,7 +216,7 @@ async function handleTranscriptRequest({ fileData, mediaType }, API_KEY, res) {
   if (base64.length > CONFIG.TRANSCRIPT_MAX_BASE64_CHARS) {
     return res.status(400).json({
       error: 'file_too_large',
-      message: 'That file is too large -- please upload something under 8MB.',
+      message: 'That file is too large, please upload something under 8MB.',
     });
   }
 
@@ -395,7 +398,7 @@ export default async function handler(req, res) {
           limitReached: true,
           reply:
             "Obee has reached its usage limit for now \uD83D\uDE4F We're working on expanding it. " +
-            'Please save what you have and check back soon -- thank you for your patience.',
+            'Please save what you have and check back soon, thank you for your patience.',
         });
       }
 

@@ -1888,10 +1888,30 @@ textarea, select, input { font-family: inherit; }
 }
 
 .results-chat-dock { margin-top: 8px; }
-.results-chat-messages { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; max-height: 320px; overflow-y: auto; }
-.chat-msg { padding: 10px 16px; border-radius: 16px; font-size: 15px; max-width: 80%; line-height: 1.5; }
-.chat-msg.user { align-self: flex-end; background: #000; color: #fff; }
-.chat-msg.ai { align-self: flex-start; background: rgba(255,255,255,0.85); }
+.results-chat-messages { display: flex; flex-direction: column; gap: 16px; margin-bottom: 14px; max-height: 320px; overflow-y: auto; }
+.chat-msg { padding: 14px 18px; border-radius: 18px; font-size: 15px; max-width: 80%; line-height: 1.7; }
+.chat-msg.user { align-self: flex-end; background: #000; color: #fff; border-radius: 18px 18px 4px 18px; }
+.chat-msg.ai {
+  position: relative;
+  align-self: flex-start;
+  background: var(--gloss-white);
+  box-shadow: var(--gloss-shadow-sm);
+  border-radius: 18px 18px 18px 4px;
+}
+/* Little speech-bubble tail anchoring the AI bubble to Obee, matching the
+   rounded/gloss look used everywhere else instead of a flat chat box. */
+.chat-msg.ai::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  background: var(--gloss-white);
+  box-shadow: var(--gloss-shadow-sm);
+  clip-path: polygon(0 100%, 100% 100%, 0 0);
+  transform: translate(-5px, 3px);
+}
 
 /* Follow-up "thinking" indicator -- shown while waiting on a chat reply so
    it never looks stuck; always removed via the same onReply callback that

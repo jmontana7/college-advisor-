@@ -949,7 +949,7 @@ const Engine = (() => {
     p.className = 'modal-text';
     p.textContent = tr(
       'dynamic.emailGateText',
-      'Enter your email to unlock your personalized college list -- we’ll send you a copy too, so you never lose it.'
+      'Enter your email to unlock your personalized college list. We’ll send you a copy too, so you never lose it.'
     );
 
     const form = document.createElement('form');
@@ -1009,9 +1009,9 @@ const Engine = (() => {
 
 
   const VOICE_ERROR_MESSAGES = {
-    'not-allowed': 'Microphone access blocked -- check your browser’s site permissions.',
+    'not-allowed': 'Microphone access blocked. Check your browser’s site permissions.',
     'service-not-allowed': 'Voice input isn’t available on this connection (needs https).',
-    'no-speech': 'Didn’t catch that -- try again.',
+    'no-speech': 'Didn’t catch that, try again.',
     'audio-capture': 'No microphone found.',
     network: 'Voice input needs an internet connection.',
     'start-failed': 'Voice input is unavailable right now.',
@@ -1020,7 +1020,7 @@ const Engine = (() => {
   function showVoiceError(textarea, errorCode) {
     const original = textarea.placeholder;
     const messages = tr('dynamic.voiceErrors', VOICE_ERROR_MESSAGES);
-    const fallback = tr('dynamic.voiceErrorFallback', 'Voice input failed -- try again.');
+    const fallback = tr('dynamic.voiceErrorFallback', 'Voice input failed, try again.');
     textarea.placeholder = messages[errorCode] || fallback;
     setTimeout(() => { textarea.placeholder = original; }, 3500);
   }
@@ -1522,7 +1522,7 @@ const Engine = (() => {
       if (!file) return;
 
       if (file.size > TRANSCRIPT_MAX_BYTES) {
-        setStatus(tr('ui.transcriptUploadTooBig', "That file is too large -- please upload something under 8MB."), 'error');
+        setStatus(tr('ui.transcriptUploadTooBig', "That file is too large, please upload something under 8MB."), 'error');
         input.value = '';
         return;
       }
@@ -1536,7 +1536,7 @@ const Engine = (() => {
 
         if (!result || result.error || result.readable === false) {
           setStatus(
-            tr('ui.transcriptUploadUnreadable', "Obee couldn't read that file clearly -- try a clearer photo or add courses manually."),
+            tr('ui.transcriptUploadUnreadable', "Obee couldn't read that file clearly, try a clearer photo or add courses manually."),
             'error'
           );
           return;
@@ -1545,7 +1545,7 @@ const Engine = (() => {
         const courses = Array.isArray(result.courses) ? result.courses : [];
         if (!courses.length) {
           setStatus(
-            tr('ui.transcriptUploadEmpty', "Obee couldn't find any courses in that file -- try a clearer photo or add them manually."),
+            tr('ui.transcriptUploadEmpty', "Obee couldn't find any courses in that file, try a clearer photo or add them manually."),
             'error'
           );
           return;
@@ -1702,7 +1702,7 @@ const Engine = (() => {
         } else {
           const note = document.createElement('p');
           note.className = 'manual-entry-note';
-          note.textContent = "We don't have a preset list for this state yet -- just type your college's name above.";
+          note.textContent = "We don't have a preset list for this state yet, just type your college's name above.";
           collegeZone.appendChild(note);
         }
       }
@@ -1876,7 +1876,7 @@ const Engine = (() => {
     } else {
       const prompt = document.createElement('p');
       prompt.className = 'results-summary';
-      prompt.textContent = 'I need a bit more information to give you my best advice -- see my question below.';
+      prompt.textContent = 'I need a bit more information to give you my best advice, see my question below.';
       body.appendChild(prompt);
     }
 

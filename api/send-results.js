@@ -45,7 +45,7 @@ function buildEmailHtml(results) {
     .map((s) => {
       const name = escapeHtml(s.name || '');
       const tier = escapeHtml(s.tier || '');
-      const note = s.note ? ` -- ${escapeHtml(s.note)}` : '';
+      const note = s.note ? `: ${escapeHtml(s.note)}` : '';
       return `<li><strong>${name}</strong> (${tier})${note}</li>`;
     })
     .join('');
