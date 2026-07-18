@@ -1231,8 +1231,9 @@ const Engine = (() => {
         select.appendChild(blank);
         f.options.forEach((opt) => {
           const o = document.createElement('option');
-          o.value = opt;
-          o.textContent = opt;
+          const isObjectOption = opt && typeof opt === 'object';
+          o.value = isObjectOption ? opt.value : opt;
+          o.textContent = isObjectOption ? opt.label : opt;
           select.appendChild(o);
         });
         select.addEventListener('change', () => {
