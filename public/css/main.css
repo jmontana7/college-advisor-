@@ -17,6 +17,18 @@
   --radius-pill: 60px;
   --radius-card: 30px;
   --radius-box: 10px;
+
+  /* ---- Glossy "gummy toy" surfaces, matching obee-full-lockup.png ---- */
+  --gloss-white:  radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 45%), linear-gradient(165deg, #ffffff 0%, #fffdf9 55%, #f2ead9 100%);
+  --gloss-cream:  radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 45%), linear-gradient(165deg, #fffaf0 0%, #fff2dc 55%, #f6dfb8 100%);
+  --gloss-accent: radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 45%), linear-gradient(165deg, #dde7ff 0%, #a8bdf9 55%, #7f9bee 100%);
+  --gloss-purple: radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 45%), linear-gradient(165deg, #e6d0ff 0%, #b486f6 55%, #8f5be0 100%);
+  --gloss-dark:   radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 45%), linear-gradient(165deg, #4a4a4a 0%, #1c1c1c 55%, #000000 100%);
+
+  --gloss-shadow-sm: inset 0 1px 1px rgba(255,255,255,0.8), inset 0 -4px 8px rgba(0,0,0,0.08), 0 6px 14px rgba(0,0,0,0.10);
+  --gloss-shadow-lg: inset 0 2px 2px rgba(255,255,255,0.8), inset 0 -8px 14px rgba(0,0,0,0.10), 0 12px 26px rgba(0,0,0,0.16);
+  --gloss-shadow-dark: inset 0 2px 2px rgba(255,255,255,0.25), inset 0 -8px 14px rgba(0,0,0,0.4), 0 12px 26px rgba(0,0,0,0.3);
+  --gloss-shadow-card: inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 3px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.07);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -47,19 +59,22 @@ textarea, select, input { font-family: inherit; }
    ============================================================ */
 #app-header {
   position: sticky;
-  top: 0;
+  top: 16px;
   z-index: 50;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 16px;
-  max-width: var(--max-width);
+  max-width: 1360px;
   width: calc(100% - 80px);
   margin: 26px auto 0;
-  background: #fff;
+  background: var(--gloss-white);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: var(--radius-pill);
-  padding: 14px 32px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  padding: 12px 32px;
+  box-shadow: var(--gloss-shadow-lg);
 }
 
 .header-logo-btn {
@@ -73,25 +88,102 @@ textarea, select, input { font-family: inherit; }
   display: flex;
   align-items: center;
 }
-.header-logo-img { height: 30px; width: auto; display: block; }
+.header-logo-img {
+  height: 30px;
+  width: auto;
+  display: block;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.header-logo-btn:hover .header-logo-img {
+  transform: scale(1.07);
+  animation: pillWiggle 0.35s ease-in-out;
+}
+@keyframes pillWiggle {
+  0%, 100% { transform: scale(1.07) rotate(0deg); }
+  20% { transform: scale(1.07) rotate(-6deg); }
+  40% { transform: scale(1.07) rotate(5deg); }
+  60% { transform: scale(1.07) rotate(-4deg); }
+  80% { transform: scale(1.07) rotate(3deg); }
+}
+
+/* Language switcher -- same gloss "toy" card look as the info modal
+   (.modal-card), just anchored under the header button instead of a
+   full-screen overlay. */
+.lang-switcher { position: relative; flex-shrink: 0; }
+.lang-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lang-btn:hover { transform: scale(1.08); }
+.lang-btn[aria-expanded="true"] { transform: scale(1.08); }
+.lang-btn-icon { height: 24px; width: auto; display: block; transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.lang-btn:hover .lang-btn-icon { transform: scale(1.1) rotate(-6deg); }
+.lang-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  min-width: 260px;
+  background: var(--cream);
+  border-radius: 20px;
+  padding: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-8px) scale(0.96);
+  transform-origin: top left;
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.2s;
+}
+.lang-dropdown.open { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0) scale(1); }
+.lang-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 15px;
+  color: var(--ink);
+  text-align: left;
+  transition: background 0.15s;
+}
+.lang-option:hover { background: rgba(0, 0, 0, 0.05); }
+.lang-option.selected { background: var(--gloss-purple); color: #fff; font-weight: 500; }
+.lang-flag { font-size: 18px; }
 
 .cta-pill {
-  background: var(--accent);
+  background: var(--gloss-accent);
   border: none;
   border-radius: var(--radius-pill);
   padding: 14px 28px;
   font-size: 17px;
   font-weight: 400;
   color: #000;
-  transition: transform 0.15s, filter 0.15s, background 0.15s;
+  box-shadow: var(--gloss-shadow-sm);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), filter 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.cta-pill:hover { filter: brightness(1.05); transform: translateY(-1px); }
-
-#header-cta:hover {
-  background: var(--obelisk-purple);
+.cta-pill:hover {
+  background: var(--gloss-purple);
   color: #fff;
   filter: none;
+  transform: translateY(-2px);
+  box-shadow: var(--gloss-shadow-lg);
 }
+.cta-pill:active { transform: translateY(0) scale(0.98); }
 
 .cta-pill--lg { padding: 18px 36px; font-size: 18px; margin-top: 24px; }
 
@@ -113,7 +205,7 @@ textarea, select, input { font-family: inherit; }
   flex-direction: column;
   align-items: center;
   padding: 60px 40px 40px;
-  animation: fadeUp 0.35s ease both;
+  animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes fadeUp {
@@ -133,10 +225,9 @@ textarea, select, input { font-family: inherit; }
 
 .home-screen > div, .home-screen > footer {
   max-width: 1360px;
+  width: calc(100% - 80px);
   margin-left: auto;
   margin-right: auto;
-  padding-left: 40px;
-  padding-right: 40px;
 }
 
 /* HERO */
@@ -150,39 +241,54 @@ textarea, select, input { font-family: inherit; }
   margin: 0 auto 14px;
 }
 .hero-quote .quote-regular { font-weight: 400; }
+.hero-quote.typing::after,
+.hero-cite.typing::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 0.9em;
+  margin-left: 3px;
+  background: currentColor;
+  vertical-align: -0.1em;
+  animation: heroQuoteCursor 0.8s step-end infinite;
+}
+@keyframes heroQuoteCursor {
+  50% { opacity: 0; }
+}
 
 .hero-cite {
-  font-family: 'Montaga', serif;
-  font-size: 20px;
+  font-family: 'Elms Sans', sans-serif;
+  font-size: 14px;
   margin-bottom: 28px;
 }
 
 .hero-sub {
-  font-size: 23px;
+  font-size: 20px;
   font-weight: 300;
-  max-width: 900px;
+  max-width: 1100px;
   margin: 0 auto 40px;
   line-height: 1.5;
 }
 
-.cta-pill--soft { background: rgba(255,255,255,0.8); }
-.cta-pill--soft:hover { background: #fff; }
-.cta-pill--dark { background: #000; color: #fff; }
+.cta-pill--soft { background: var(--gloss-white); }
+.cta-pill--dark { background: var(--gloss-dark); color: #fff; box-shadow: var(--gloss-shadow-dark); }
 
 /* APP CARDS -- black/dark fill sits fully inside the white rounded card */
 .app-card {
   display: flex;
-  background: #fff;
+  background: var(--gloss-white);
   border-radius: 10px;
   min-height: 540px;
   margin-bottom: 60px;
   overflow: hidden; /* clips the dark panel to the card's rounded corners */
   text-align: left;
+  box-shadow: var(--gloss-shadow-card);
   opacity: 0;
   transform: translateY(24px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .app-card.revealed { opacity: 1; transform: translateY(0); }
+.app-card:hover { box-shadow: var(--gloss-shadow-card), 0 20px 46px rgba(0,0,0,0.12); transform: translateY(-4px); }
 
 .app-card-main {
   flex: 1;
@@ -197,62 +303,244 @@ textarea, select, input { font-family: inherit; }
 .app-card-panel {
   width: 43%;
   flex-shrink: 0;
-  background: #343434;
+  /* Same glossy structure as --gloss-dark (radial highlight + diagonal
+     gradient) but recolored to the panel's own blue instead of the shared
+     dark tone, so --gloss-dark (buttons, etc.) stays untouched. */
+  background: radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 45%), linear-gradient(165deg, #c7dafb 0%, #a1bef6 55%, #7b9be0 100%);
   color: #fff;
   padding: 44px 40px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 24px;
+  position: relative;
+  overflow: hidden;
 }
 .app-card-panel p { font-size: 22px; font-weight: 300; }
-.app-card-panel .cta-pill { margin-top: auto; align-self: flex-end; }
+/* Sibling image is position:absolute, so per CSS stacking rules it paints
+   above this button by default (positioned beats static) even though it
+   comes first in the DOM -- pin the button into its own stack so clicks
+   land on it instead of the image behind it. */
+.app-card-panel .cta-pill { margin-top: auto; align-self: flex-end; position: relative; z-index: 1; }
+
+.app-card-panel--video { padding: 0; position: relative; overflow: hidden; }
+.promo-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
 
 .card-icon { height: 60px; width: auto; }
 .card-icon--onDark { height: 52px; }
+/* Source art is a tall portrait (rocket up top, Earth down low) inside a
+   landscape panel -- object-fit:contain alone leaves big empty bands on
+   both sides. Sizing off height + a mild upscale + an upward bias crops
+   into the (empty) top glow first, keeping the character and Earth intact
+   while noticeably shrinking the dead space and pulling Earth further up
+   into the frame. */
+.panel-feature-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: 128%;
+  width: auto;
+  max-width: none;
+  transform: translate(-50%, -44%);
+}
 
-.card-title { font-size: 24px; font-weight: 300; }
-.card-body { font-size: 20px; font-weight: 300; line-height: 1.6; max-width: 560px; }
+.card-title { font-size: 24px; font-weight: 700; }
+.card-body { font-size: 20px; font-weight: 300; line-height: 1.6; max-width: 560px; text-align: justify; }
 .app-card-main .cta-pill { margin-top: auto; }
 
-/* Card 2: enlarged icon + text so the feature grid fills the white space */
-.app-card:nth-of-type(2) .app-card-main .card-icon { height: 76px; }
+/* Card 1 (video panel): no icon, tighter rhythm so the text column comfortably
+   fits within a card sized to the video's own height (no letterbox bars). */
+.app-card-main--compact { padding: 54px 20px 18px 56px; gap: 8px; }
+.app-card-main--compact .card-title { font-size: 24px; }
+.app-card-main--compact .card-body { font-size: 18px; line-height: 1.5; }
+/* Sits a bit below dead-center in the leftover space below the last
+   paragraph (10% further down than the exact midpoint) -- without touching
+   the text above, which keeps its exact position regardless of this value. */
+.app-card-main--compact .cta-pill { margin-top: 15px; }
+
+/* Card 2: no icon above the grid anymore -- the grid is the only child of
+   app-card-main now, so it grows to fill the card's full height (flex:1)
+   and its rows spread evenly across that height instead of bunching at
+   the top the way a fixed row-gap would. */
 .features-grid {
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, 1fr));
-  gap: 34px 60px;
-  font-size: 30px;
+  align-content: space-evenly;
+  column-gap: 96px;
+  font-size: 32px;
   font-weight: 300;
-  padding: 24px 0;
 }
+/* Nudged right within the card, past where the removed icon used to anchor
+   it, while the grid's own two columns stay evenly balanced around
+   themselves. */
+.app-card:not(.app-card--video) .app-card-main { padding-left: 80px; }
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 46px;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Staggered fade-up once the card scrolls into view (reuses .app-card's
+   existing IntersectionObserver-driven .revealed class). */
+.app-card.revealed .feature-item { opacity: 1; transform: translateY(0); }
+.feature-item:nth-child(1) { transition-delay: 0.05s; }
+.feature-item:nth-child(2) { transition-delay: 0.15s; }
+.feature-item:nth-child(3) { transition-delay: 0.25s; }
+.feature-item:nth-child(4) { transition-delay: 0.35s; }
+.feature-item:nth-child(5) { transition-delay: 0.45s; }
+.feature-item:nth-child(6) { transition-delay: 0.55s; }
+.feature-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 67px;
+  height: 67px;
+  flex-shrink: 0;
+  object-fit: contain;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.feature-item:hover .feature-emoji { transform: scale(1.15) rotate(-6deg); animation: pillWiggle 0.35s ease-in-out; }
 
-/* FLOW DIAGRAM */
-.flow-section {
+/* FLOW DIAGRAM -- a self-cycling carousel: one step card visible at a time,
+   auto-advancing on a pure-CSS timer (no JS needed), each with its own
+   little icon animation, held inside a halftone-dot "board" the same width
+   as the app cards. */
+.flow-cascade {
   position: relative;
-  height: 460px;
-  margin-bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 40px 24px;
+  margin-bottom: 18px;
+  border-radius: 32px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.flow-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.flow-curve { fill: none; stroke: rgba(0,0,0,0.28); stroke-width: 2; }
-.flow-arrow-head { fill: rgba(0,0,0,0.4); }
+.flow-cascade.revealed { opacity: 1; transform: translateY(0); }
 
-.flow-pill {
+/* A field of real dots twinkling at random -- no shared pattern, just noise --
+   except one fixed subset plotted in a dot-matrix "OBEE" that pulses in
+   unison, so the word occasionally reads out of the randomness. */
+.flow-dot-field {
   position: absolute;
-  transform: translate(-4%, 0);
-  background: #fff8ee;
-  border-radius: 30px;
-  padding: 22px 26px;
-  font-size: 19px;
-  font-weight: 300;
-  white-space: nowrap;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  grid-auto-rows: 1fr;
+  justify-items: center;
+  align-items: center;
 }
-.flow-final {
+.flow-twinkle-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--obelisk-purple);
+  opacity: 0.15;
+  animation-name: dotTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes dotTwinkle {
+  0%, 100% { opacity: 0.12; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.7); }
+}
+.flow-twinkle-dot--obee { background: var(--obelisk-purple); }
+
+.flow-carousel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1120px;
+  height: 384px;
+}
+
+/* Cards are JS-driven (buildFlowCarousel in engine.js): each one types its
+   own label letter by letter at a fixed pace, so slot length depends on the
+   category's text length rather than a fixed shared timer. */
+.flow-carousel-card {
   position: absolute;
-  font-size: 22px;
+  inset: 0;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 4px 16px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+}
+.flow-carousel-card.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.flow-carousel-img {
+  height: 98%;
+  width: auto;
+  flex-shrink: 0;
+  object-fit: contain;
+  /* Nudged up off-center -- at full height it was sitting flush against
+     the bottom edge of the row. transform (not margin) so it doesn't
+     perturb the flex centering math and risk clipping. */
+  transform: translateY(-17px);
+}
+
+.flow-carousel-textwrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+/* Width is animated 0 -> full via JS (Element.animate). Left-aligned nowrap
+   content in a box narrower than its own width overflows past the box's
+   right edge and gets clipped there, so growing the box reveals characters
+   left to right, in normal reading order. */
+.flow-carousel-label {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: 'Schoolbell', cursive;
   font-weight: 400;
-  white-space: nowrap;
+  font-size: 52px;
+  line-height: 1.3;
+  color: var(--ink);
+  width: 0;
+  /* Subtle white outline plus a soft halo, so the dark handwriting stays
+     crisp and legible against the busy twinkling dot pattern behind it. */
+  -webkit-text-stroke: 1.25px #fff;
+  paint-order: stroke fill;
+  text-shadow: 0 0 12px #fff, 0 0 22px #fff, 0 0 32px rgba(255, 255, 255, 0.8);
 }
+
+/* Progress dots sit below the whole board, outside the twinkling dot-field
+   background -- not layered inside it. */
+.flow-carousel-dots { display: flex; justify-content: center; gap: 10px; margin: 8px 0 70px; }
+.flow-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(253, 133, 168, 0.3);
+  transform: scale(1);
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+.flow-dot.is-active { background: #fd85a8; transform: scale(1.5); }
+
 
 /* FAQ -- collapsible */
 .faq-section {
@@ -279,31 +567,41 @@ textarea, select, input { font-family: inherit; }
   font-weight: 300;
   padding: 30px 4px;
 }
-.faq-chevron { font-size: 24px; transition: transform 0.2s; }
+.faq-chevron { display: inline-flex; align-items: center; justify-content: center; color: var(--obelisk-purple); transition: transform 0.2s; }
 .faq-row.open .faq-chevron { transform: rotate(180deg); }
 
+/* grid-template-rows 0fr -> 1fr instead of animating max-height/padding:
+   the old approach forced a synchronous layout recalc on every frame (the
+   visible "mini lag" on click); this animates smoothly without guessing an
+   arbitrary max-height. */
 .faq-answer {
-  max-height: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+.faq-row.open .faq-answer { grid-template-rows: 1fr; }
+.faq-answer-inner {
   overflow: hidden;
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 300;
   color: var(--ink-soft);
   line-height: 1.6;
-  transition: max-height 0.3s ease, padding 0.3s ease;
   padding: 0 4px;
 }
-.faq-row.open .faq-answer { max-height: 200px; padding: 0 4px 26px; }
+.faq-row.open .faq-answer-inner { padding: 0 4px 26px; }
 
 /* FINAL CTA */
 .final-cta {
-  background: linear-gradient(135deg, #fdf6ec 0%, #fecf85 45%, #a8bdf9 100%);
+  background: url("../assets/igetcbanner.webp") center / cover no-repeat;
   border-radius: 10px;
   padding: 82px 40px;
   margin-bottom: 80px;
 }
 
 .final-card {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-radius: 10px;
   max-width: 511px;
   margin: 0 auto;
@@ -313,7 +611,7 @@ textarea, select, input { font-family: inherit; }
   align-items: center;
   gap: 24px;
 }
-.final-icon { height: 96px; width: auto; }
+.final-icon { height: 170px; width: auto; }
 .final-card h2 { font-size: 36px; font-weight: 400; line-height: 1.3; text-align: center; }
 
 /* FOOTER */
@@ -325,8 +623,6 @@ textarea, select, input { font-family: inherit; }
   text-align: left;
 }
 .footer-logo { height: 130px; width: auto; }
-.socials { display: flex; gap: 14px; }
-.social-dot { width: 48px; height: 48px; border-radius: 50%; background: rgba(0,0,0,0.12); }
 .footer-copy { font-size: 20px; font-weight: 300; }
 
 /* ============================================================
@@ -340,8 +636,38 @@ textarea, select, input { font-family: inherit; }
   justify-content: flex-start;
   padding-top: 70px;
 }
+.question-screen--wide { max-width: 1280px; }
 
 .question-header { margin-bottom: 30px; }
+
+.question-progress {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.question-progress-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+}
+.question-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+.question-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--obelisk-purple), var(--gold-start));
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
 
 .question-title {
   font-size: 34px;
@@ -357,6 +683,7 @@ textarea, select, input { font-family: inherit; }
   color: var(--ink);
 }
 .question-sub:empty { display: none; }
+.question-optional-note { font-size: 14px; color: var(--ink-soft); text-align: center; margin-top: 4px; }
 
 /* Centers option rows / sliders / cards vertically in the available space,
    so short-content screens (grade picker, yes/no, etc.) don't look glued
@@ -373,6 +700,26 @@ textarea, select, input { font-family: inherit; }
   flex-wrap: wrap;
   min-height: 160px;
 }
+
+/* Sits above an options row (not beside it, like splitImage) -- currently
+   just cc_transfer_timeline. */
+.question-stacked-image {
+  width: 100%;
+  max-width: 469px;
+  height: auto;
+  margin-bottom: 4px;
+}
+/* transform-only shift -- doesn't reflow the buttons below, unlike margin
+   or padding would. */
+.question-screen--step-cc_transfer_timeline .question-stacked-image { transform: translateX(47px); }
+/* Pushes the image + buttons down toward the chat bar instead of vertically
+   centering the block, so the image has room without feeling cramped
+   against the subtitle above it. */
+.question-screen--step-cc_transfer_timeline .question-body { justify-content: flex-end; }
+.question-screen--step-cc_transfer_timeline .opt-btn { padding: 13px 25px; font-size: 17px; }
+/* Selected state matches the home page CTA's own hover look (gloss-purple,
+   white text), same treatment as cc_igetc. */
+.question-screen--step-cc_transfer_timeline .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
 
 .helper-text {
   font-size: 17px;
@@ -393,19 +740,511 @@ textarea, select, input { font-family: inherit; }
 }
 
 .opt-btn {
-  background: var(--accent-soft);
+  background: var(--gloss-white);
   border: none;
   border-radius: var(--radius-card);
   padding: 14px 26px;
   font-size: 18px;
   color: var(--ink-soft);
-  transition: all 0.15s;
+  box-shadow: var(--gloss-shadow-sm);
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.opt-btn:hover { background: #fff; }
+.opt-btn:hover { transform: translateY(-1px); box-shadow: var(--gloss-shadow-lg); }
 .opt-btn.selected {
-  background: var(--accent);
+  background: var(--gloss-accent);
   color: #000;
   font-weight: 500;
+  box-shadow: var(--gloss-shadow-lg);
+}
+
+/* Split layout: big illustration on the left, stacked options on the right
+   (used by the "who are you?" student-type step) */
+.question-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 48px;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  text-align: left;
+}
+.question-split-image {
+  display: flex;
+  justify-content: center;
+}
+/* Field content first / image second visually, without touching DOM order
+   (both are always appended image-then-content). */
+.question-split--reverse .question-split-image { order: 2; }
+.question-split-image img {
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+}
+/* Only present on steps with a transcript-upload box (currently cc_courses)
+   -- keeps imgWrap's own row/anchor sizing untouched (still sees a single
+   flex child) while stacking image + box vertically inside it. */
+.split-image-stack {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ============================================================
+   TRANSCRIPT UPLOAD BOX (cc_courses -- upload + AI-read courses)
+   ============================================================ */
+.transcript-upload-box {
+  width: 100%;
+  background: var(--gloss-white);
+  border-radius: var(--radius-box);
+  box-shadow: var(--gloss-shadow-lg);
+  padding: 18px 20px;
+  text-align: center;
+  margin-top: auto;
+}
+.transcript-upload-caption { font-size: 13px; color: var(--ink-soft); margin-bottom: 10px; }
+.transcript-upload-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+/* Same gloss-accent look as the home page's "Start Exploring" cta-pill. */
+.transcript-upload-btn {
+  background: var(--gloss-accent);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 10px 22px;
+  font-size: 13px;
+  color: #000;
+  box-shadow: var(--gloss-shadow-sm);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.transcript-upload-btn:hover {
+  background: var(--gloss-purple);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: var(--gloss-shadow-lg);
+}
+.transcript-upload-btn:disabled { opacity: 0.6; pointer-events: none; }
+/* No reserved min-height -- empty status takes no space, so the box isn't
+   left with dead air below the button when there's nothing to report yet. */
+.transcript-upload-status { margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--ink-soft); }
+.transcript-upload-status:empty { margin-top: 0; }
+.transcript-upload-status--loading { color: var(--ink-soft); }
+.transcript-upload-status--success { color: #2e7d32; }
+.transcript-upload-status--error { color: #c0392b; }
+/* Some pages (e.g. the GPA sliders) have enough content that the default
+   780px column width forces every label onto two lines -- this variant
+   spreads the whole layout wider and gives the illustration more room too. */
+.question-split--wide { max-width: 1080px; gap: 64px; }
+.question-split--wide .question-split-image img { max-width: 560px; }
+/* card-stack's 720px-wide entry card doesn't fit a 1fr/1fr grid column --
+   flex with an explicit basis on the field content guarantees it the room
+   it needs and leaves the image whatever's left, in either order. */
+.question-split--card {
+  display: flex;
+  align-items: center;
+  max-width: 1240px;
+  gap: 48px;
+}
+.question-split--card .question-field-content { flex: 0 0 720px; }
+.question-split--card .question-split-image { flex: 1 1 0%; min-width: 0; }
+/* Same treatment as cc_courses: whole row capped to the chat bar's own
+   width (760px) so Obee's left edge and the card's right edge line up with
+   the chat bar instead of sprawling wider; card goes vertical to fit. */
+/* Nudged right so the gap between Obee and the card sits centered under
+   the "(optional)" note above -- not a plain re-center, since the note
+   itself isn't centered over the split as a whole. */
+.question-split--step-cc_ap_ib { max-width: 760px; gap: 24px; padding-left: 61px; }
+/* ap-and-ib.webp was trimmed of a big transparent margin baked into the
+   canvas -- 225px on the trimmed asset is Obee 10% bigger than 436px was on
+   the untrimmed one. Shrinking the image's own box (rather than overflowing
+   past it) is also what pulls the card left, since neither flex item is
+   stretched to fill the full 760px anymore. */
+.question-split--step-cc_ap_ib .question-split-image { flex: 0 0 225px; min-width: 0; }
+.question-split--step-cc_ap_ib .question-split-image img { width: 225px; max-width: 225px; }
+.question-split--step-cc_ap_ib .question-field-content { flex: 0 0 300px; }
+.question-split--step-cc_ap_ib .card-stack,
+.question-split--step-cc_ap_ib .entry-card,
+.question-split--step-cc_ap_ib .entry-card-peek { width: 300px; }
+.question-split--step-cc_ap_ib .entry-fields-row { flex-direction: column; align-items: stretch; gap: 14px; }
+.question-split--step-cc_ap_ib .entry-field { flex: 0 0 auto; width: 100%; }
+.question-split--step-cc_ap_ib .entry-card label { text-align: center; }
+.question-split--step-cc_ap_ib .add-entry-btn { background: #FA7FA1; }
+.question-split--step-cc_ap_ib .entry-field-inline-row { gap: 8px; }
+
+/* hs_ap_ib reuses cc_ap_ib's photo AND exact layout/proportions. */
+.question-split--step-hs_ap_ib { max-width: 760px; gap: 24px; padding-left: 61px; }
+.question-split--step-hs_ap_ib .question-split-image { flex: 0 0 225px; min-width: 0; }
+.question-split--step-hs_ap_ib .question-split-image img { width: 225px; max-width: 225px; }
+.question-split--step-hs_ap_ib .question-field-content { flex: 0 0 300px; }
+.question-split--step-hs_ap_ib .card-stack,
+.question-split--step-hs_ap_ib .entry-card,
+.question-split--step-hs_ap_ib .entry-card-peek { width: 300px; }
+.question-split--step-hs_ap_ib .entry-fields-row { flex-direction: column; align-items: stretch; gap: 14px; }
+.question-split--step-hs_ap_ib .entry-field { flex: 0 0 auto; width: 100%; }
+.question-split--step-hs_ap_ib .entry-card label { text-align: center; }
+.question-split--step-hs_ap_ib .add-entry-btn { background: #FA7FA1; }
+.question-split--step-hs_ap_ib .entry-field-inline-row { gap: 8px; }
+
+/* Obee + helper paragraph both 15% bigger on the major page -- flex with a
+   fixed image basis instead of the default 1fr/1fr grid, since a plain grid
+   would cap the image at half of 780px (390px), well under the 506px target. */
+.question-split--step-cc_major { display: flex; align-items: center; gap: 48px; max-width: 1040px; }
+.question-split--step-cc_major .question-split-image { flex: 0 0 506px; min-width: 0; }
+.question-split--step-cc_major .question-split-image img { width: 506px; max-width: 506px; }
+.question-split--step-cc_major .question-field-content { flex: 1 1 0%; min-width: 0; }
+.question-split--step-cc_major .helper-text { font-size: 19.5px; max-width: 480px; }
+/* hs_major reuses cc_major's photo, so it reuses the exact same layout/size. */
+.question-split--step-hs_major { display: flex; align-items: center; gap: 48px; max-width: 1040px; }
+.question-split--step-hs_major .question-split-image { flex: 0 0 506px; min-width: 0; }
+.question-split--step-hs_major .question-split-image img { width: 506px; max-width: 506px; }
+.question-split--step-hs_major .question-field-content { flex: 1 1 0%; min-width: 0; }
+.question-split--step-hs_major .helper-text { font-size: 19.5px; max-width: 480px; }
+
+/* cc_courses card is vertical (label-over-control, stacked) instead of the
+   usual side-by-side field row, so it can be narrow enough to fit between
+   the chat bar and Obee. The whole row is capped at the chat bar's own
+   width (760px) and centered the same way, so card+gap+Obee together line
+   up with the chat bar's left/right edges instead of sprawling wider. */
+/* align-items:stretch (overriding .question-split--card's own
+   align-items:center) top-aligns the card and Obee's column AND makes both
+   columns the same height, so margin-top:auto on the upload box (below) can
+   pin its bottom flush with the card's bottom -- not just close to it. */
+.question-split--step-cc_courses { max-width: 760px; gap: 24px; align-items: stretch; padding-left: 110px; }
+/* Card is narrower (per the "menu example" reference mock) so Obee can take
+   the freed-up width and grow, still inside the same 760px chat-bar budget. */
+.question-split--step-cc_courses .question-field-content { flex: 0 0 300px; }
+/* .card-stack's generic 16px/24px top/bottom margin was invisible slack
+   inside this column that the stretch+margin-auto alignment below counted
+   as part of the card's height -- zeroing it makes the visible card's own
+   bottom edge (not a margin past it) the thing the upload box aligns to. */
+.question-split--step-cc_courses .card-stack { margin: 0; }
+.question-split--step-cc_courses .question-split-image { flex: 0 0 225px; min-width: 0; justify-content: flex-end; }
+/* grades2.webp was trimmed of a big transparent margin baked into the
+   canvas -- 225px on the trimmed asset reads bigger than the old 436px
+   render did (that canvas was ~55% dead space), while keeping the combined
+   Obee+upload-box column from ballooning past the card's own height. */
+.question-split--step-cc_courses .question-split-image img { width: 195px; max-width: 195px; }
+.question-split--step-cc_courses .card-stack,
+.question-split--step-cc_courses .entry-card,
+.question-split--step-cc_courses .entry-card-peek { width: 300px; }
+.question-split--step-cc_courses .entry-fields-row { flex-direction: column; align-items: stretch; gap: 14px; }
+.question-split--step-cc_courses .entry-field { flex: 0 0 auto; width: 100%; }
+.question-split--step-cc_courses .add-entry-btn { background: #FA7FA1; }
+/* College's two buttons: boxy and compact, per the mock -- fixed width with
+   wrapping text instead of stretched pills, small gap between them. */
+.question-split--step-cc_courses .college-choice-toggle { gap: 8px; }
+.question-split--step-cc_courses .college-choice-btn {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 12px;
+  white-space: normal;
+  line-height: 1.25;
+  border-radius: 14px;
+}
+/* Units doesn't need a full-width select for a 1-2 digit number -- fixed,
+   compact width instead of stretching to fill the row. */
+.question-split--step-cc_courses .entry-field-inline-row { gap: 8px; }
+.question-split--step-cc_courses .entry-field-inline-row select { flex: 0 0 110px; }
+/* Pulls the whole card+Obee+upload-box block down toward the chat bar
+   instead of vertically centering it, which otherwise leaves a much bigger
+   gap above the shorter (course) card than above the taller Obee column. */
+.question-screen--step-cc_courses .question-body { justify-content: flex-end; }
+
+/* hs_courses' card fields are different from cc_courses' (no college/units
+   picker), but it reuses the exact same layout/proportions + transcript
+   upload box + Obee. */
+.question-split--step-hs_courses { max-width: 760px; gap: 24px; align-items: stretch; padding-left: 110px; }
+.question-split--step-hs_courses .question-field-content { flex: 0 0 340px; display: flex; flex-direction: column; }
+.question-split--step-hs_courses .question-split-image { flex: 0 0 225px; min-width: 0; justify-content: flex-end; }
+.question-split--step-hs_courses .question-split-image img { width: 195px; max-width: 195px; }
+.question-split--step-hs_courses .card-stack,
+.question-split--step-hs_courses .entry-card,
+.question-split--step-hs_courses .entry-card-peek { width: 340px; }
+/* Card has fewer fields than cc_courses' (no college/units picker), so
+   without this it reads shorter than the Obee+upload column beside it --
+   stretching it the same height and spacing its 3 fields evenly makes it
+   occupy that whole column instead of leaving dead space beneath it. */
+.question-split--step-hs_courses .card-stack { margin: 0; flex: 1; display: flex; flex-direction: column; }
+.question-split--step-hs_courses .entry-card { flex: 1; display: flex; flex-direction: column; }
+.question-split--step-hs_courses .entry-fields-row { flex: 1; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 14px; }
+.question-split--step-hs_courses .entry-field { flex: 0 0 auto; width: 100%; }
+.question-split--step-hs_courses .add-entry-btn { background: #FA7FA1; }
+.question-screen--step-hs_courses .question-body { justify-content: flex-end; }
+
+/* The GPA page's slider labels are white-space:nowrap, so in a plain 1fr/1fr
+   grid they out-muscle the image column down to a sliver -- flex with a
+   fixed basis on the image guarantees it real size regardless of how wide
+   the labels get. Whole row is capped at the chat bar's own width so it
+   reads as one tidy, encapsulated unit with it, same as cc_college_name. */
+.question-split--step-cc_gpa {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: 760px;
+}
+/* The image wrapper keeps its original 240px flex-basis -- that's what
+   pins the slider column's x-position -- and just stops clipping the img,
+   which is free to render bigger than its box. Anchoring to the right
+   (instead of centering) makes that overflow grow leftward, away from the
+   bars, so enlarging Obee never nudges them. */
+.question-split--step-cc_gpa .question-split-image { flex: 0 0 240px; min-width: 0; justify-content: flex-end; }
+/* gpa.webp was trimmed of a big transparent margin baked into the canvas --
+   187px on the trimmed asset is Obee 10% bigger than 340px was on the
+   untrimmed one. Nudged right via transform, which (like the box above)
+   doesn't touch the 240px wrapper, so the bars never move. */
+.question-split--step-cc_gpa .question-split-image img { width: 187px; max-width: 187px; transform: translateX(-2px); }
+.question-split--step-cc_gpa .question-field-content { flex: 1 1 0%; min-width: 0; }
+.question-split--step-cc_gpa .slider-group { max-width: none; width: 100%; }
+/* Both bars are pinned to the same fixed width -- the natural span from
+   "What's" to the end of the "Doesn't apply to me" button -- instead of
+   stretching to the full column, so they read as a matched pair the same
+   length as the label/toggle row above them. */
+.question-split--step-cc_gpa .slider-wrap { max-width: none; width: 460px; margin: 20px 0 0; }
+.question-split--step-cc_gpa .slider-row-head { justify-content: flex-start; gap: 14px; width: 460px; }
+.question-split--step-cc_gpa .slider-row-head--solo { justify-content: center; }
+.question-split--step-cc_gpa .slider-optional-toggle { padding: 6px 12px; font-size: 12px; margin-bottom: 0; }
+
+/* Obee 15% bigger and pulled closer to the buttons (flex + fixed image
+   basis, same fix as cc_major -- the default 1fr/1fr grid would otherwise
+   cap the image at half of 780px). Buttons shrunk down and given their own
+   narrower column instead of stretching the full half-width. */
+.question-split--step-cc_igetc { display: flex; align-items: center; justify-content: center; gap: 8px; max-width: 760px; }
+/* igetc.webp was trimmed of the big transparent margin baked into the
+   original canvas (that margin, not the CSS gap, was what made Obee look
+   far from the buttons) -- 220px on the trimmed asset renders Obee at the
+   same on-screen size as 557px did on the old untrimmed one. */
+.question-split--step-cc_igetc .question-split-image { flex: 0 0 220px; min-width: 0; }
+.question-split--step-cc_igetc .question-split-image img { width: 220px; max-width: 220px; }
+.question-split--step-cc_igetc .question-field-content { flex: 0 0 300px; }
+/* Buttons are sized to their own text (not stretched to fill the column),
+   centered so the stepped widths actually read as a pyramid (left-aligning
+   them just makes a staircase), stepped smallest-to-largest top-to-bottom
+   in the same No/Yes/In progress/What is IGETC order as before. */
+.question-split--step-cc_igetc .opt-stack { gap: 12px; align-items: center; }
+.question-split--step-cc_igetc .opt-btn--stacked { width: auto; }
+.question-split--step-cc_igetc .opt-btn--stacked:nth-child(1) { padding: 11px 20px; font-size: 14px; }
+.question-split--step-cc_igetc .opt-btn--stacked:nth-child(2) { padding: 13px 24px; font-size: 15px; }
+.question-split--step-cc_igetc .opt-btn--stacked:nth-child(3) { padding: 15px 29px; font-size: 17px; }
+.question-split--step-cc_igetc .opt-btn--stacked:nth-child(4) { padding: 18px 33px; font-size: 18px; }
+/* Selected state matches the home page CTA's own hover look (gloss-purple,
+   white text) instead of the site-wide default blue "selected" gloss. */
+.question-split--step-cc_igetc .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
+
+/* Obee on the left, Yes/No/Not sure stacked one on top of another on the
+   right -- same side-by-side family as cc_out_of_state / cc_igetc. Capped to
+   the chat bar's own 760px width, with justify-content:center + the field
+   column shrunk to fit-content (instead of flex:1 stretching it) so the
+   actual image+buttons cluster centers in the middle of the page instead of
+   hugging the left side of that 760px box. */
+.question-split--step-cc_first_gen { display: flex; align-items: center; justify-content: center; gap: 32px; max-width: 760px; }
+.question-split--step-cc_first_gen .question-split-image { flex: 0 0 238px; min-width: 0; }
+.question-split--step-cc_first_gen .question-split-image img { width: 163px; max-width: 163px; }
+.question-split--step-cc_first_gen .question-field-content { flex: 0 0 auto; min-width: 0; }
+.question-split--step-cc_first_gen .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
+/* Centered (not left-aligned) so the stepped widths below actually read as
+   a pyramid instead of a staircase, same technique as cc_igetc. */
+.question-split--step-cc_first_gen .opt-stack { gap: 12px; align-items: center; }
+.question-split--step-cc_first_gen .opt-btn--stacked { width: auto; }
+.question-split--step-cc_first_gen .opt-btn--stacked:nth-child(1) { padding: 12px 22px; font-size: 15px; }
+.question-split--step-cc_first_gen .opt-btn--stacked:nth-child(2) { padding: 15px 27px; font-size: 17px; }
+.question-split--step-cc_first_gen .opt-btn--stacked:nth-child(3) { padding: 16px 29px; font-size: 17px; }
+
+/* hs_first_gen reuses cc_first_gen's photo AND exact layout/proportions. */
+.question-split--step-hs_first_gen { display: flex; align-items: center; justify-content: center; gap: 32px; max-width: 760px; }
+.question-split--step-hs_first_gen .question-split-image { flex: 0 0 238px; min-width: 0; }
+.question-split--step-hs_first_gen .question-split-image img { width: 163px; max-width: 163px; }
+.question-split--step-hs_first_gen .question-field-content { flex: 0 0 auto; min-width: 0; }
+.question-split--step-hs_first_gen .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
+.question-split--step-hs_first_gen .opt-stack { gap: 12px; align-items: center; }
+.question-split--step-hs_first_gen .opt-btn--stacked { width: auto; }
+.question-split--step-hs_first_gen .opt-btn--stacked:nth-child(1) { padding: 12px 22px; font-size: 15px; }
+.question-split--step-hs_first_gen .opt-btn--stacked:nth-child(2) { padding: 15px 27px; font-size: 17px; }
+.question-split--step-hs_first_gen .opt-btn--stacked:nth-child(3) { padding: 16px 29px; font-size: 17px; }
+
+/* Same selected-state treatment (gloss-purple, white text) as cc_igetc /
+   cc_transfer_timeline. Buttons sized to their own text instead of
+   stretching the full column -- same fix as cc_igetc's buttons. */
+.question-split--step-cc_specific_schools .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
+.question-split--step-cc_specific_schools .opt-stack { gap: 14px; align-items: flex-start; }
+.question-split--step-cc_specific_schools .opt-btn--stacked { width: auto; padding: 16px 26px; font-size: 17px; }
+/* Same gloss-purple selected state, buttons sized to their own text -- same
+   family as cc_igetc / cc_specific_schools / cc_transfer_timeline. Centered
+   (not left-aligned) so the shorter "stay in my state" button sits centered
+   over "explore the country" below it, not flush to the same left edge. */
+.question-split--step-cc_out_of_state .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
+.question-split--step-cc_out_of_state .opt-stack { gap: 14px; align-items: center; }
+.question-split--step-cc_out_of_state .opt-btn--stacked { width: auto; padding: 16px 26px; font-size: 17px; }
+/* Flex (not the default 1fr/1fr grid) so Obee gets a fixed basis 10% bigger
+   than the grid column capped him at. Capped to the chat bar's own 760px
+   width (instead of the wider 886px + right padding it used to have) so the
+   whole row centers exactly between the chat bar's left/right edges. */
+.question-split--step-cc_out_of_state { display: flex; align-items: center; gap: 48px; max-width: 760px; }
+.question-split--step-cc_out_of_state .question-split-image { flex: 0 0 403px; min-width: 0; }
+.question-split--step-cc_out_of_state .question-split-image img { width: 403px; max-width: 403px; }
+.question-split--step-cc_out_of_state .question-field-content { flex: 1 1 0%; min-width: 0; }
+
+/* hs_out_of_state reuses cc_out_of_state's photo AND exact layout/proportions. */
+.question-split--step-hs_out_of_state .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
+.question-split--step-hs_out_of_state .opt-stack { gap: 14px; align-items: center; }
+.question-split--step-hs_out_of_state .opt-btn--stacked { width: auto; padding: 16px 26px; font-size: 17px; }
+.question-split--step-hs_out_of_state { display: flex; align-items: center; gap: 48px; max-width: 760px; }
+.question-split--step-hs_out_of_state .question-split-image { flex: 0 0 403px; min-width: 0; }
+.question-split--step-hs_out_of_state .question-split-image img { width: 403px; max-width: 403px; }
+.question-split--step-hs_out_of_state .question-field-content { flex: 1 1 0%; min-width: 0; }
+
+/* satandact.webp on the left, score card cut down to a compact width
+   (was the global 720px .entry-card) -- same chat-bar-aligned proportions
+   as the other split-image + card combos. */
+.question-split--step-cc_test_scores { display: flex; align-items: center; max-width: 760px; gap: 24px; padding-left: 85px; }
+.question-split--step-cc_test_scores .question-split-image { flex: 0 0 340px; min-width: 0; }
+.question-split--step-cc_test_scores .question-split-image img { width: 306px; max-width: 306px; }
+.question-split--step-cc_test_scores .question-field-content { flex: 0 0 210px; }
+.question-split--step-cc_test_scores .card-stack,
+.question-split--step-cc_test_scores .entry-card,
+.question-split--step-cc_test_scores .entry-card-peek { width: 210px; }
+/* "SAT" / "ACT" centered over their input pills instead of left-aligned. */
+.question-split--step-cc_test_scores .entry-card label { text-align: center; }
+
+/* hs_test_scores reuses cc_test_scores' photo AND exact layout/proportions. */
+.question-split--step-hs_test_scores { display: flex; align-items: center; max-width: 760px; gap: 24px; padding-left: 85px; }
+.question-split--step-hs_test_scores .question-split-image { flex: 0 0 340px; min-width: 0; }
+.question-split--step-hs_test_scores .question-split-image img { width: 306px; max-width: 306px; }
+.question-split--step-hs_test_scores .question-field-content { flex: 0 0 210px; }
+.question-split--step-hs_test_scores .card-stack,
+.question-split--step-hs_test_scores .entry-card,
+.question-split--step-hs_test_scores .entry-card-peek { width: 210px; }
+.question-split--step-hs_test_scores .entry-card label { text-align: center; }
+
+/* preference.webp on the left, college-type buttons stacked one on top of
+   another on the right. */
+.question-split--step-hs_college_type { display: flex; align-items: center; gap: 12px; max-width: 882px; padding-left: 122px; }
+.question-split--step-hs_college_type .question-split-image { flex: 0 0 320px; min-width: 0; justify-content: flex-end; }
+.question-split--step-hs_college_type .question-split-image img { width: 320px; max-width: 320px; }
+.question-split--step-hs_college_type .question-field-content { flex: 0 0 auto; min-width: 0; }
+.question-split--step-hs_college_type .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
+/* Centered (not left-aligned) so the stepped widths read as a pyramid
+   instead of a staircase, same technique as cc_igetc. */
+.question-split--step-hs_college_type .opt-stack { gap: 12px; align-items: center; }
+.question-split--step-hs_college_type .opt-btn--stacked { width: auto; }
+.question-split--step-hs_college_type .opt-btn--stacked:nth-child(1) { padding: 11px 20px; font-size: 14px; }
+.question-split--step-hs_college_type .opt-btn--stacked:nth-child(2) { padding: 13px 24px; font-size: 15px; }
+.question-split--step-hs_college_type .opt-btn--stacked:nth-child(3) { padding: 15px 29px; font-size: 17px; }
+.question-split--step-hs_college_type .opt-btn--stacked:nth-child(4) { padding: 18px 33px; font-size: 18px; }
+
+/* plane.webp on the left, state dropdown + high school name field on the
+   right (unchanged). */
+.question-split--step-hs_state { display: flex; align-items: center; gap: 32px; max-width: 780px; }
+.question-split--step-hs_state .question-split-image { flex: 0 0 340px; min-width: 0; }
+.question-split--step-hs_state .question-split-image img { width: 340px; max-width: 340px; }
+.question-split--step-hs_state .question-field-content { flex: 1 1 0%; min-width: 0; }
+
+/* Obee's now on the left, buttons on the right -- pulled as close together
+   as the grid allows: small gap, image hugs the right edge of its column
+   (toward the buttons) instead of centering. */
+.question-split--step-cc_specific_schools { display: flex; align-items: center; gap: 16px; max-width: 897px; padding-left: 117px; }
+.question-split--step-cc_specific_schools .question-split-image { flex: 0 0 388px; min-width: 0; justify-content: flex-end; }
+.question-split--step-cc_specific_schools .question-split-image img { width: 388px; max-width: 388px; }
+.question-split--step-cc_specific_schools .question-field-content { flex: 1 1 0%; min-width: 0; }
+
+/* hs_specific_schools reuses cc_specific_schools' photo AND exact layout/proportions. */
+.question-split--step-hs_specific_schools .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
+.question-split--step-hs_specific_schools .opt-stack { gap: 14px; align-items: flex-start; }
+.question-split--step-hs_specific_schools .opt-btn--stacked { width: auto; padding: 16px 26px; font-size: 17px; }
+.question-split--step-hs_specific_schools { display: flex; align-items: center; gap: 16px; max-width: 897px; padding-left: 117px; }
+.question-split--step-hs_specific_schools .question-split-image { flex: 0 0 388px; min-width: 0; justify-content: flex-end; }
+.question-split--step-hs_specific_schools .question-split-image img { width: 388px; max-width: 388px; }
+.question-split--step-hs_specific_schools .question-field-content { flex: 1 1 0%; min-width: 0; }
+
+/* who-are-you.webp was trimmed of a huge transparent margin baked into the
+   canvas -- 144px on the trimmed asset is Obee 20% bigger than he rendered
+   on the untrimmed one. Same gloss-purple selected state as the other
+   option screens, and pulled closer to the chat bar below. */
+/* Flex row + centered (not the default 1fr/1fr grid) so the image+buttons
+   unit centers as a whole within the split -- a grid with a right-anchored
+   image in column 1 and full-width buttons in column 2 packs everything
+   toward the right edge instead, which read as "off-center" here. */
+.question-split--step-student_type { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.question-split--step-student_type .question-split-image { flex: 0 0 144px; }
+.question-split--step-student_type .question-split-image img { width: 144px; max-width: 144px; }
+.question-split--step-student_type .opt-stack { gap: 14px; align-items: center; }
+.question-split--step-student_type .opt-btn--stacked { width: auto; padding: 16px 28px; font-size: 17px; }
+.question-split--step-student_type .opt-btn.selected { background: var(--gloss-purple); color: #fff; }
+
+/* Match the chat bar's own width so "Select your state" lines up with its
+   left edge instead of sitting well inside it (the default 780px/2 column
+   was narrower than -- and offset from -- the 760px chat bar below it). */
+.question-split--step-cc_college_name { max-width: 760px; }
+
+/* Match the chat bar's own width so the image+copy row reads as one unit
+   with it. Flex + fixed image basis (not the default 1fr/1fr grid) so Obee
+   can be 15% bigger than the plain grid's half-column would otherwise cap
+   him at. Helper paragraph is centered and a touch bigger. */
+.question-split--step-cc_extracurriculars { display: flex; align-items: center; gap: 24px; max-width: 760px; }
+/* Column was 410px wide but the trimmed image itself is only 230px --
+   centered in that box, that leftover 180px of empty column space is what
+   was keeping Obee and the text apart. Shrinking the column to fit the
+   image (plus a little breathing room) and hugging it to the right edge
+   (flex-end, so growing Obee never nudges the text) pulls both toward the
+   middle instead. */
+.question-split--step-cc_extracurriculars .question-split-image { flex: 0 0 260px; min-width: 0; justify-content: flex-end; }
+.question-split--step-cc_extracurriculars .question-split-image img { width: 230px; max-width: 230px; }
+.question-split--step-cc_extracurriculars .question-field-content { flex: 1 1 0%; min-width: 0; }
+.question-split--step-cc_extracurriculars .helper-text { text-align: center; font-size: 20px; max-width: none; margin-bottom: 0; }
+
+/* hs_extracurriculars reuses cc_extracurriculars' Obee photo AND its exact
+   side-by-side layout -- image left, helper text right. */
+.question-split--step-hs_extracurriculars { display: flex; align-items: center; gap: 24px; max-width: 760px; }
+.question-split--step-hs_extracurriculars .question-split-image { flex: 0 0 260px; min-width: 0; justify-content: flex-end; }
+.question-split--step-hs_extracurriculars .question-split-image img { width: 230px; max-width: 230px; }
+.question-split--step-hs_extracurriculars .question-field-content { flex: 1 1 0%; min-width: 0; }
+.question-split--step-hs_extracurriculars .helper-text { text-align: center; font-size: 20px; max-width: none; margin-bottom: 0; }
+.opt-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.opt-btn--stacked {
+  width: 100%;
+  padding: 22px 28px;
+  font-size: 19px;
+  text-align: center;
+}
+
+/* Fully-illustrated option buttons -- the artwork itself is the button
+   (background, label, and arrow are baked into the image), so we strip
+   the default opt-btn chrome and let the image fill the box. */
+.opt-btn--image {
+  background: none;
+  padding: 0;
+  box-shadow: none;
+  border-radius: 30px;
+  overflow: hidden;
+  width: 100%;
+}
+.opt-btn--image img { display: block; width: 100%; height: auto; }
+.opt-btn--image:hover { transform: translateY(-2px) scale(1.015); box-shadow: var(--gloss-shadow-lg); }
+.opt-btn--image.selected {
+  box-shadow: var(--gloss-shadow-lg), 0 18px 34px rgba(0, 0, 0, 0.22);
+  transform: translateY(-2px) scale(1.25);
+}
+.question-screen--step-hs_grade .opt-stack {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 544px;
+  margin: 0 auto;
+  gap: 14px;
 }
 
 /* ============================================================
@@ -420,9 +1259,10 @@ textarea, select, input { font-family: inherit; }
 
 .slider-track {
   position: relative;
-  height: 64px;
+  height: 35px;
   border-radius: var(--radius-pill);
   background: linear-gradient(to right, #fff 0%, #fff 50%, rgba(227,226,226,0.8) 50%, rgba(227,226,226,0.8) 100%);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.18);
   display: flex;
   align-items: center;
 }
@@ -431,7 +1271,7 @@ textarea, select, input { font-family: inherit; }
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 64px;
+  height: 35px;
   background: transparent;
   position: absolute;
   top: 0; left: 0;
@@ -442,20 +1282,22 @@ textarea, select, input { font-family: inherit; }
 
 .slider-input::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 64px;
-  height: 64px;
+  width: 35px;
+  height: 35px;
   border-radius: 50%;
-  background: linear-gradient(180deg, var(--gold-grad-start) 18%, var(--gold-grad-end) 93%);
-  border: 3px solid #fffefe;
+  background: var(--gloss-purple);
+  border: 2px solid #fffefe;
+  box-shadow: inset 0 4px 5px rgba(255,255,255,0.6), inset 0 -8px 10px rgba(0,0,0,0.18), 0 0 14px rgba(255,255,255,0.65), 0 8px 20px rgba(0,0,0,0.38);
   color: #fff;
   cursor: pointer;
 }
 .slider-input::-moz-range-thumb {
-  width: 64px;
-  height: 64px;
+  width: 35px;
+  height: 35px;
   border-radius: 50%;
-  background: linear-gradient(180deg, var(--gold-grad-start) 18%, var(--gold-grad-end) 93%);
-  border: 3px solid #fffefe;
+  background: var(--gloss-purple);
+  border: 2px solid #fffefe;
+  box-shadow: inset 0 4px 5px rgba(255,255,255,0.6), inset 0 -8px 10px rgba(0,0,0,0.18), 0 0 14px rgba(255,255,255,0.65), 0 8px 20px rgba(0,0,0,0.38);
   cursor: pointer;
 }
 
@@ -468,15 +1310,65 @@ textarea, select, input { font-family: inherit; }
 .slider-value-display strong { font-size: 22px; color: var(--ink); }
 
 .slider-group { width: 100%; max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
-.slider-row-label { font-size: 20px; color: var(--ink-soft); margin-bottom: 8px; text-align: left; }
+.slider-row-label { font-size: 20px; color: var(--ink-soft); margin-bottom: 8px; text-align: left; white-space: nowrap; }
+.slider-row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.slider-row-head--solo { justify-content: center; }
+.slider-row-head--toggle-only { justify-content: flex-end; width: 100%; max-width: 460px; margin: 0 auto; }
+.slider-row-head .slider-row-label { margin-bottom: 0; }
+.slider-optional-toggle {
+  flex-shrink: 0;
+  background: var(--gloss-white);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 8px 16px;
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--ink-soft);
+  box-shadow: var(--gloss-shadow-sm);
+  margin-bottom: 8px;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.15s;
+}
+.slider-optional-toggle:hover { transform: translateY(-1px); box-shadow: var(--gloss-shadow-lg); }
+.slider-optional-toggle.selected { background: var(--gloss-accent); color: #000; font-weight: 500; box-shadow: var(--gloss-shadow-lg); }
+.slider-wrap--disabled { opacity: 0.4; pointer-events: none; }
+
+/* Units-completed slider is its own independent size so future tweaks to it
+   (or to any other single slider) never bleed into the GPA sliders above --
+   each slider instance gets a --<step id> modifier for exactly this reason. */
+.slider-wrap--cc_units .slider-track,
+.slider-wrap--cc_units .slider-input { height: 58px; }
+.slider-wrap--cc_units .slider-input::-webkit-slider-thumb { width: 58px; height: 58px; border-width: 2px; }
+.slider-wrap--cc_units .slider-input::-moz-range-thumb { width: 58px; height: 58px; border-width: 2px; }
+/* A little longer too -- give this step's split more room than the default
+   780px grid so the (now slimmer) bar doesn't look short next to Obee. */
+.question-split--step-cc_units { max-width: 900px; }
+/* Nudged right to line up its left edge with the chat bar below. */
+.slider-wrap--cc_units { margin-left: 40px; }
+
+/* hs_gpa is now a dual-slider (unweighted + optional weighted), so it reuses
+   the exact same layout/sizing approach as cc_gpa's cumulative/transferable
+   pair -- just with hs_gpa's own already-tuned Obee size. */
+.question-split--step-hs_gpa {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: 760px;
+}
+.question-split--step-hs_gpa .question-split-image { flex: 0 0 240px; min-width: 0; justify-content: flex-end; }
+.question-split--step-hs_gpa .question-split-image img { width: 257px; max-width: 257px; }
+.question-split--step-hs_gpa .question-field-content { flex: 1 1 0%; min-width: 0; }
+.question-split--step-hs_gpa .slider-group { max-width: none; width: 100%; }
+.question-split--step-hs_gpa .slider-wrap { max-width: none; width: 460px; margin: 20px 0 0; }
+.question-split--step-hs_gpa .slider-row-head { justify-content: flex-start; gap: 14px; width: 460px; }
+.question-split--step-hs_gpa .slider-row-head--solo { justify-content: center; }
 
 /* ============================================================
    STACKED CARDS (courses, AP/IB)
    ============================================================ */
 .card-stack {
   position: relative;
-  width: 314px;
-  min-height: 300px;
+  width: 720px;
+  min-height: 180px;
   margin: 16px auto 24px;
 }
 .card-stack--single { min-height: auto; }
@@ -485,7 +1377,7 @@ textarea, select, input { font-family: inherit; }
 .entry-card-peek {
   position: absolute;
   top: 0; left: 0;
-  width: 314px;
+  width: 720px;
   height: 100%;
   background: #fdf8f2;
   border: 1px solid rgba(0,0,0,0.05);
@@ -499,14 +1391,16 @@ textarea, select, input { font-family: inherit; }
 .entry-card {
   position: relative;
   z-index: 2;
-  width: 314px;
-  background: #fff;
+  width: 720px;
+  background: var(--gloss-white);
   border-radius: var(--radius-box);
-  box-shadow: 0 4px 4px rgba(0,0,0,0.25);
+  box-shadow: var(--gloss-shadow-lg);
   padding: 24px;
   text-align: left;
   transition: transform 0.35s ease, opacity 0.35s ease;
 }
+.entry-fields-row { display: flex; align-items: flex-start; gap: 20px; }
+.entry-field { flex: 1; min-width: 0; }
 .entry-card--added {
   animation: cardAdded 0.42s ease;
 }
@@ -521,30 +1415,38 @@ textarea, select, input { font-family: inherit; }
   font-size: 15px;
   color: var(--ink-soft);
   margin-bottom: 6px;
-  margin-top: 14px;
 }
-.entry-card label:first-child { margin-top: 0; }
 
 .entry-card input,
 .entry-card select {
   width: 100%;
-  border: 1.5px solid #000;
+  border: none;
   border-radius: var(--radius-pill);
-  padding: 10px 16px;
-  font-size: 14px;
+  padding: 12px 18px;
+  font-size: 15px;
   font-family: inherit;
   color: var(--ink-soft);
   outline: none;
-  background: #fffefe;
+  background: var(--gloss-white);
+  box-shadow: var(--gloss-shadow-sm);
   appearance: none;
   -webkit-appearance: none;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.entry-card input:hover,
+.entry-card select:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--gloss-shadow-lg);
 }
 .entry-card select {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23888' d='M7 10l5 5 5-5z'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 16px;
-  padding-right: 36px;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23888' d='M7 10l5 5 5-5z'/></svg>"),
+    radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 45%),
+    linear-gradient(165deg, #ffffff 0%, #fffdf9 55%, #f2ead9 100%);
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: right 16px center, 0 0, 0 0;
+  background-size: 16px, auto, auto;
+  padding-right: 40px;
 }
 .entry-card input::placeholder { opacity: 0.6; }
 
@@ -578,7 +1480,8 @@ textarea, select, input { font-family: inherit; }
   margin-top: 16px;
 }
 .add-entry-btn {
-  background: var(--accent);
+  flex-shrink: 0;
+  background: var(--gloss-accent);
   border: none;
   border-radius: 50%;
   width: 34px;
@@ -586,9 +1489,18 @@ textarea, select, input { font-family: inherit; }
   font-size: 18px;
   line-height: 1;
   color: #000;
+  box-shadow: var(--gloss-shadow-sm);
   transition: transform 0.15s;
 }
 .add-entry-btn:hover { transform: scale(1.08); }
+
+/* Generic inline slot for the add button next to whichever field is last
+   in the row -- college-choice has its own two-button toggle row for this,
+   every other field type (select/autocomplete/text) uses this instead. */
+.entry-field-inline-row { display: flex; align-items: center; gap: 10px; }
+.entry-field-inline-row select,
+.entry-field-inline-row input,
+.entry-field-inline-row .autocomplete-wrap { flex: 1; min-width: 0; }
 
 .entries-list {
   width: 100%;
@@ -628,21 +1540,31 @@ textarea, select, input { font-family: inherit; }
 .dropdown-row--single select,
 .dropdown-row--single input {
   width: 100%;
-  border: 1.5px solid #000;
+  border: none;
   border-radius: var(--radius-pill);
   padding: 14px 22px;
   font-size: 17px;
   color: var(--ink-soft);
-  background: rgba(255,255,255,0.85);
+  background: var(--gloss-white);
+  box-shadow: var(--gloss-shadow-sm);
   outline: none;
   appearance: none;
   -webkit-appearance: none;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dropdown-row--single select:hover,
+.dropdown-row--single input:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--gloss-shadow-lg);
 }
 .dropdown-row--single select {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23888' d='M7 10l5 5 5-5z'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 20px center;
-  background-size: 18px;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23888' d='M7 10l5 5 5-5z'/></svg>"),
+    radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 45%),
+    linear-gradient(165deg, #ffffff 0%, #fffdf9 55%, #f2ead9 100%);
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: right 20px center, 0 0, 0 0;
+  background-size: 18px, auto, auto;
   padding-right: 46px;
 }
 .college-zone { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -651,8 +1573,9 @@ textarea, select, input { font-family: inherit; }
   border: none;
   font-size: 14px;
   color: var(--ink-soft);
-  text-decoration: underline;
+  text-decoration: none;
 }
+.manual-entry-underline { text-decoration: underline; }
 .manual-entry-note {
   font-size: 13px;
   color: var(--ink-soft);
@@ -668,9 +1591,10 @@ textarea, select, input { font-family: inherit; }
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255,255,255,0.8);
+  background: var(--gloss-white);
   border-radius: var(--radius-pill);
   padding: 14px 24px;
+  box-shadow: var(--gloss-shadow-sm);
 }
 
 .freeform-input {
@@ -679,23 +1603,53 @@ textarea, select, input { font-family: inherit; }
   background: transparent;
   outline: none;
   resize: none;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--ink-soft);
   max-height: 120px;
-  line-height: 1.4;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
 }
-.freeform-input::placeholder { color: var(--ink-soft); opacity: 0.85; }
+
+/* Both grow-as-you-type text fields: swap the browser's stock scrollbar
+   (with its clunky stepper arrows) for a slim rounded thumb in the same
+   purple-to-gold gradient as the progress bar. A scrollbar only ever
+   renders once content overflows, so this stays invisible until the
+   student actually types enough to need it. */
+.freeform-input, .results-chat-input {
+  scrollbar-width: thin;
+  scrollbar-color: var(--obelisk-purple) transparent;
+}
+.freeform-input::-webkit-scrollbar, .results-chat-input::-webkit-scrollbar {
+  width: 6px;
+}
+.freeform-input::-webkit-scrollbar-button, .results-chat-input::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.freeform-input::-webkit-scrollbar-track, .results-chat-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+.freeform-input::-webkit-scrollbar-thumb, .results-chat-input::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--obelisk-purple), var(--gold-start));
+  border-radius: var(--radius-pill);
+}
+.freeform-input::placeholder { color: var(--ink-soft); opacity: 0.72; }
 
 .mic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
-  font-size: 22px;
+  color: var(--ink-soft);
   border-radius: 50%;
   width: 36px;
   height: 36px;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
-.mic-btn.mic-active { background: rgba(180,134,246,0.25); }
+.mic-btn:hover { background: rgba(0,0,0,0.06); color: var(--ink); }
+.mic-btn.mic-active { background: rgba(180,134,246,0.25); color: var(--obelisk-purple); }
 
 /* ============================================================
    NAV ROW (Back / Skip / Continue)
@@ -703,37 +1657,53 @@ textarea, select, input { font-family: inherit; }
 .nav-row {
   width: 100%;
   max-width: 760px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   margin-top: 18px;
 }
 
 .back-btn {
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  background: var(--gloss-white);
   border: none;
+  border-radius: var(--radius-pill);
+  padding: 14px 26px;
   font-size: 16px;
   color: var(--ink-soft);
+  box-shadow: var(--gloss-shadow-sm);
+  grid-column: 1;
+  justify-self: start;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
+.back-btn:hover { transform: translateY(-2px); box-shadow: var(--gloss-shadow-lg); }
 
 .skip-link {
+  display: none;
   background: none;
   border: none;
   font-size: 15px;
   color: var(--ink-soft);
-  text-decoration: underline;
+  text-decoration: none;
+  grid-column: 2;
+  justify-self: center;
 }
 
 .continue-btn {
-  background: #000;
+  grid-column: 3;
+  justify-self: end;
+  background: var(--gloss-dark);
   color: #fff;
   border: none;
   border-radius: var(--radius-pill);
   padding: 14px 30px;
   font-size: 17px;
-  transition: opacity 0.15s;
+  box-shadow: var(--gloss-shadow-dark);
+  transition: opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
+.continue-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--gloss-shadow-dark), 0 14px 30px rgba(0,0,0,0.2); }
 .continue-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ============================================================
@@ -745,21 +1715,70 @@ textarea, select, input { font-family: inherit; }
   text-align: center;
   margin: auto;
 }
-.thinking-ring {
-  width: 220px; height: 220px;
-  border-radius: 50%;
-  border: 10px solid rgba(36,81,253,0.12);
-  border-top-color: rgba(36,81,253,0.7);
-  border-right-color: rgba(36,81,253,0.7);
-  animation: spin 1s linear infinite;
-  margin-bottom: 20px;
+/* Organic morphing "gooey blob" cluster -- three colored blobs blurred and
+   re-sharpened (blur + contrast) so their edges melt into each other as they
+   drift and reshape, like the old Sony Ericsson logo animation. A crisp,
+   unblurred eye sits on top so the whole cluster reads as one restless,
+   one-eyed creature -- tying it back to Obee's own mascot. */
+.thinking-stage {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  margin: 0 auto 28px;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-.thinking-icon { font-size: 34px; margin-bottom: 8px; }
+.thinking-blob-wrap {
+  position: absolute;
+  inset: 0;
+  filter: blur(16px);
+}
+.thinking-blob { position: absolute; border-radius: 50%; }
+.thinking-blob--purple {
+  width: 130px; height: 130px;
+  top: 40px; left: 30px;
+  background: var(--obelisk-purple);
+  animation: blobMorph1 4.5s ease-in-out infinite;
+  animation-delay: -1.2s;
+}
+.thinking-blob--gold {
+  width: 108px; height: 108px;
+  top: 78px; left: 96px;
+  background: var(--gold-start);
+  animation: blobMorph2 5.3s ease-in-out infinite;
+  animation-delay: -2.6s;
+}
+.thinking-blob--lavender {
+  width: 96px; height: 96px;
+  top: 34px; left: 82px;
+  background: var(--lavender-solid);
+  animation: blobMorph3 3.9s ease-in-out infinite;
+  animation-delay: -0.6s;
+}
+@keyframes blobMorph1 {
+  0%, 100% { transform: translate(0,0) scale(1); border-radius: 42% 58% 65% 35% / 45% 45% 55% 55%; }
+  33% { transform: translate(20px,-18px) scale(1.15); border-radius: 60% 40% 35% 65% / 55% 65% 35% 45%; }
+  66% { transform: translate(-16px,16px) scale(0.88); border-radius: 38% 62% 55% 45% / 60% 40% 60% 40%; }
+}
+@keyframes blobMorph2 {
+  0%, 100% { transform: translate(0,0) scale(1); border-radius: 55% 45% 40% 60% / 40% 55% 45% 60%; }
+  40% { transform: translate(-22px,12px) scale(1.18); border-radius: 40% 60% 60% 40% / 55% 40% 60% 45%; }
+  70% { transform: translate(14px,-16px) scale(0.9); border-radius: 65% 35% 45% 55% / 45% 60% 40% 55%; }
+}
+@keyframes blobMorph3 {
+  0%, 100% { transform: translate(0,0) scale(1); border-radius: 48% 52% 58% 42% / 55% 48% 52% 45%; }
+  50% { transform: translate(18px,18px) scale(1.22); border-radius: 62% 38% 40% 60% / 45% 60% 40% 55%; }
+}
+.thinking-icon-img {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 360px;
+  height: auto;
+}
 .thinking-label {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 600;
-  color: rgba(36,81,253,0.7);
+  color: var(--obelisk-purple);
+  letter-spacing: 0.02em;
 }
 .thinking-fade { animation: thinkingFade 1.5s ease; }
 @keyframes thinkingFade {
@@ -773,8 +1792,23 @@ textarea, select, input { font-family: inherit; }
    RESULTS SCREEN
    ============================================================ */
 .results-screen { max-width: 900px; margin: 0 auto; text-align: left; align-items: stretch; }
-.results-header { text-align: left; margin-bottom: 8px; }
+.results-header { text-align: left; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .results-header h2 { font-size: 28px; margin-bottom: 16px; }
+
+.results-actions { display: flex; gap: 10px; margin-bottom: 16px; }
+.results-action-btn {
+  background: var(--gloss-white);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 9px 16px;
+  font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+  box-shadow: var(--gloss-shadow-sm);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.results-action-btn:hover { transform: translateY(-1px); box-shadow: var(--gloss-shadow-lg); }
+.results-action-btn--pdf { font-weight: 700; }
 
 .results-body { display: flex; flex-direction: column; gap: 20px; margin-bottom: 8px; }
 
@@ -792,15 +1826,27 @@ textarea, select, input { font-family: inherit; }
   gap: 14px;
 }
 .school-card {
-  background: rgba(255,255,255,0.75);
+  background: radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 45%), rgba(255,255,255,0.75);
   border-radius: 16px;
   padding: 18px 20px;
-  animation: fadeUp 0.35s ease both;
+  box-shadow: var(--gloss-shadow-card);
+  animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
+.school-card:hover { transform: translateY(-3px); box-shadow: var(--gloss-shadow-card), 0 10px 24px rgba(0,0,0,0.08); }
 .school-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
 .school-name { font-size: 16px; font-weight: 600; }
 .school-program { font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; }
 .school-note { font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+.school-source {
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+.school-source--verified { color: #2d7a4f; }
+.school-source--general { color: #c9933a; }
 
 .tier-badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
 .tier-safety { background: #e8f5ee; color: #2d7a4f; }
@@ -809,9 +1855,10 @@ textarea, select, input { font-family: inherit; }
 .tier-tag    { background: #e3eef8; color: #1a5c8a; }
 
 .top-pick-card {
-  background: linear-gradient(135deg, #fff8ee, #f2ecff);
+  background: radial-gradient(120% 150% at 26% 8%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 45%), linear-gradient(135deg, #fff8ee, #f2ecff);
   border-radius: 16px;
   padding: 22px 24px;
+  box-shadow: var(--gloss-shadow-card);
 }
 .top-pick-label { font-size: 13px; font-weight: 600; color: var(--obelisk-purple); margin-bottom: 6px; }
 .top-pick-name { font-size: 19px; font-weight: 600; margin-bottom: 6px; }
@@ -856,7 +1903,8 @@ textarea, select, input { font-family: inherit; }
 }
 .results-chat-input::placeholder { color: var(--ink-soft); opacity: 0.85; }
 
-.send-btn { background: var(--accent); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; flex-shrink: 0; }
+.send-btn { background: var(--gloss-accent); box-shadow: var(--gloss-shadow-sm); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; flex-shrink: 0; transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1); }
+.send-btn:hover { transform: scale(1.08); }
 
 /* ============================================================
    LIMIT REACHED SCREEN
@@ -867,18 +1915,114 @@ textarea, select, input { font-family: inherit; }
 .limit-message { font-size: 16px; color: var(--ink-soft); line-height: 1.6; }
 
 /* ============================================================
+   COLLEGE-CHOICE FIELD (current vs previous college)
+   ============================================================ */
+.college-choice-wrap { display: flex; flex-direction: column; gap: 8px; }
+/* The add-course "+" button (when this is the last field) lands here too,
+   next to Previous college, instead of in a separate footer row below. */
+.college-choice-toggle { display: flex; align-items: center; gap: 8px; }
+.college-choice-btn {
+  flex: 1;
+  background: var(--gloss-white);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 11px 12px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  box-shadow: var(--gloss-shadow-sm);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.15s;
+}
+.college-choice-btn:hover { transform: translateY(-1px); box-shadow: var(--gloss-shadow-lg); }
+.college-choice-btn.selected { background: var(--gloss-accent); color: #000; font-weight: 500; box-shadow: var(--gloss-shadow-lg); }
+.college-choice-toggle .add-entry-btn { flex-shrink: 0; }
+.college-choice-wrap input { margin-top: 4px; }
+
+/* ============================================================
+   INFO MODAL (replaces native alert() for in-flow explanations)
+   ============================================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-card {
+  background: var(--cream);
+  border-radius: 24px;
+  padding: 40px 36px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  animation: fadeUp 0.25s ease both;
+}
+.modal-icon { height: 64px; width: auto; margin-bottom: 4px; }
+.modal-title { font-size: 20px; font-weight: 600; }
+.modal-text { font-size: 15px; color: var(--ink-soft); line-height: 1.6; }
+.modal-close { margin-top: 10px; }
+
+.modal-email-form { display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 6px; }
+.modal-email-input-wrap {
+  background: var(--gloss-white);
+  border-radius: var(--radius-pill);
+  padding: 14px 22px;
+  box-shadow: var(--gloss-shadow-sm);
+}
+.modal-email-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 15px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-family: inherit;
+}
+.modal-email-input::placeholder { color: var(--ink-soft); opacity: 0.6; }
+.modal-email-error { font-size: 13px; color: #c0392b; min-height: 16px; }
+.modal-email-submit { width: 100%; }
+.modal-email-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 900px) {
   .app-card { flex-direction: column; min-height: auto; }
   .app-card-panel { width: 100%; }
+  /* The video panel has no in-flow content once stacked, so it needs an
+     explicit ratio (matching the source video's 4:3) or it collapses to 0. */
+  .app-card-panel--video { aspect-ratio: 4 / 3; }
   .faq-section { grid-template-columns: 1fr; }
-  .flow-section { height: 620px; }
-  .flow-pill { font-size: 16px; padding: 16px 18px; white-space: normal; max-width: 60%; }
+  .flow-carousel { height: 264px; }
+  .flow-carousel-card { padding: 4px 16px; gap: 12px; }
+  .flow-carousel-label { font-size: 29px; }
+  .question-split { grid-template-columns: 1fr; gap: 24px; text-align: center; }
+  .question-split-image img { max-width: 260px; }
+  .question-split--card { flex-direction: column; }
+  .question-split--card .question-field-content { flex-basis: auto; width: 100%; }
 }
 
 @media (max-width: 720px) {
-  #app-header { width: calc(100% - 32px); padding: 10px 18px; }
+  #app-header {
+    width: calc(100% - 32px);
+    padding: 10px 18px;
+    justify-content: space-between;
+  }
+  /* On desktop the logo is absolutely centered over the pill; at this width
+     the "Find your path" button no longer leaves it enough room and the two
+     collide. Drop it into normal flex flow (logo left, button right) so they
+     can never overlap, regardless of button width or translated label length. */
+  .header-logo-btn { position: static; left: auto; top: auto; transform: none; }
   .cta-pill { padding: 10px 18px; font-size: 14px; }
   .screen { padding: 32px 20px 24px; }
   .question-title { font-size: 26px; }
@@ -886,6 +2030,34 @@ textarea, select, input { font-family: inherit; }
   .hero-quote { font-size: 24px; }
   .hero-sub { font-size: 16px; }
   .card-stack, .entry-card, .entry-card-peek { width: 100%; max-width: 314px; }
-  .nav-row { flex-wrap: wrap; }
+  /* Three columns are too cramped on a phone screen; stack them back into
+     rows like the original single-column layout. */
+  .entry-fields-row { flex-direction: column; gap: 0; }
+  .entry-field + .entry-field { margin-top: 14px; }
+  .nav-row { gap: 8px; }
   .school-grid { grid-template-columns: 1fr; }
+  /* Two fixed 180px+ columns don't fit a phone screen -- the second one was
+     overflowing the card and getting clipped, hiding half the list. */
+  .features-grid { grid-template-columns: 1fr; gap: 16px; }
+  .freeform-input, .results-chat-input { font-size: 15px; }
+  /* Side-by-side image+text has no room left on a phone screen; stack them
+     instead, full width, so the typed label has room to grow. */
+  .flow-carousel { height: 312px; }
+  .flow-carousel-card { flex-direction: column; padding: 4px 16px; gap: 10px; }
+  .flow-carousel-img { height: 55%; }
+  /* The clip reveal needs a single nowrap line; below this width the
+     longest label can't fit one at a readable size, so it just wraps and
+     fades in with the card instead (see buildFlowCarousel). */
+  .flow-carousel-textwrap { width: 100%; justify-content: center; }
+  .flow-carousel-label { overflow: visible; white-space: normal; text-align: center; font-size: 29px; }
+}
+
+/* ============================================================
+   PRINT (Download PDF uses the browser's native print-to-PDF)
+   ============================================================ */
+@media print {
+  #app-header, .results-actions, .results-chat-dock, .nav-row { display: none !important; }
+  body { background: #fff; }
+  .results-screen { max-width: 100%; }
+  .school-card, .results-summary, .top-pick-card, .info-card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
 }

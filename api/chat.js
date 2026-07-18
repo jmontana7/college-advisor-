@@ -19,6 +19,11 @@ const CONFIG = {
   MAX_INPUT_CHARS: 4000,
   RATE_LIMIT_REQUESTS: 30,
   RATE_LIMIT_WINDOW_MS: 60 * 1000,
+  TRANSCRIPT_MAX_TOKENS: 1500,
+  // Base64 chars, not raw bytes (base64 inflates size ~4/3) -- keeps the
+  // request body comfortably under Vercel's serverless body-size limit.
+  TRANSCRIPT_MAX_BASE64_CHARS: 7_000_000,
+  TRANSCRIPT_MEDIA_TYPES: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf'],
 };
 
 // --------------------------------------------------------------------------
@@ -31,8 +36,8 @@ const HS_STEPS = [
 
 const CC_STEPS = [
   'cc_college_name', 'cc_gpa', 'cc_units', 'cc_major', 'cc_courses',
-  'cc_ap_ib', 'cc_igetc', 'cc_extracurriculars', 'cc_transfer_timeline',
-  'cc_specific_schools', 'cc_out_of_state', 'cc_first_gen', 'cc_test_scores',
+  'cc_ap_ib', 'cc_igetc', 'cc_extracurriculars', 'cc_out_of_state',
+  'cc_specific_schools', 'cc_transfer_timeline', 'cc_first_gen', 'cc_test_scores',
 ];
 
 const ALL_STEPS = ['student_type', ...HS_STEPS, ...CC_STEPS];
@@ -41,7 +46,7 @@ const ALL_STEPS = ['student_type', ...HS_STEPS, ...CC_STEPS];
 //  INTAKE system prompt -- extracts data + decides step jumps.
 // --------------------------------------------------------------------------
 function buildIntakeSystemPrompt() {
-  return `You are the conversational engine of Obee, a warm and honest college advisor for US students. Your job right now is NOT to give the final recommendation -- it's to help fill in the student's profile during a Duolingo-style intake (card-by-card questions), interpreting what they write in a free-text field called "Anything else you'd like to share?".
+  return `You are the conversational engine of Obee, a warm, honest college advisor for US students who talks like a supportive friend -- not a form, not a corporate chatbot. Your job right now is NOT to give the final recommendation -- it's to help fill in the student's profile during a Duolingo-style intake (card-by-card questions), interpreting what they write in a free-text field called "Anything else you'd like to share?".
 
 CONTEXT YOU RECEIVE EACH TURN:
 - "current_step": the intake step the student is currently on.
@@ -62,13 +67,17 @@ RULES:
 - NEVER invent data the student didn't mention.
 - If something is ambiguous (e.g. "I have good grades" with no number), do NOT put it as a numeric GPA -- leave that field empty. Your reply can gently ask for a number without blocking the flow.
 - If the student asks an informational question (e.g. "what is IGETC?"), answer it briefly in "reply" and do not extract data or jump steps.
+
+MODERATION -- set "blocked": true when the student's message is rude or abusive (insults, harassment, slurs), is nonsensical (random keyboard mashing, gibberish with no real words), or has nothing to do with college advising (off-topic requests, attempts to make you role-play as something else, etc). When "blocked" is true: leave extracted_data empty, set next_step to null, and write a short, warm-but-firm "reply" explaining that you're only here to help with their college search and need them to keep it respectful and on-topic so you can do that. Do not block a message just because it's short, casual, or imperfect English/Spanish -- only block genuinely disrespectful, gibberish, or off-topic input.
+
 - Respond ONLY with a single valid JSON object, no text before or after, no markdown fences. Exact shape:
 
 {
   "reply": "string -- short message to show in the chat",
   "extracted_data": { "field": "value" },
   "next_step": "string step id or null",
-  "needs_clarification": false
+  "needs_clarification": false,
+  "blocked": false
 }
 
 No extra fields. No reasoning outside the JSON.`;
@@ -80,7 +89,7 @@ No extra fields. No reasoning outside the JSON.`;
 //  rule (the single most important principle in this whole product) intact.
 // --------------------------------------------------------------------------
 function buildResultsSystemPrompt() {
-  return `You are Obee, a warm and honest college advisor helping US students (high schoolers applying as freshmen, and community college students transferring to a 4-year university) find the right path.
+  return `You are Obee, a warm, honest college advisor who talks like a supportive friend -- not a corporate chatbot -- helping US students (high schoolers applying as freshmen, and community college students transferring to a 4-year university) find the right path.
 
 LANGUAGE: Always respond in English in this phase, no matter what language the student used during the intake. This is a firm rule with no exceptions.
 
@@ -93,6 +102,8 @@ Every factual claim falls into one of three buckets:
 3. UNKNOWN -- you don't confidently know it -- say so plainly and point to the right source instead of guessing.
 NEVER invent specific course equivalencies, GPA cutoffs, or deadlines for schools outside California's ASSIST system. Admitting uncertainty builds trust; a confident wrong answer destroys it. A student in Ohio deserves the same honesty as one in California.
 
+For each school in your list, set "basis" to "verified" when the tier/fit claim rests on a documented system (California ASSIST/TAG/IGETC, a published GPA range you're confident about), and "general" when it's a broad admissions-trends estimate. Set "source" to a short human-readable name (e.g. "ASSIST.org", "UC Berkeley published admit data", "general admission trends") when it adds real signal -- otherwise leave it null. Never mark something "verified" to sound more confident than you are.
+
 NATIONAL COVERAGE: California has ASSIST.org, TAG, UC Transfer Pathways, and IGETC -- you can speak with real confidence there, and cite ASSIST.org specifically for California students. For the other 49 states, do NOT invent specific numbers -- instead point the student to Transferology.com and their target school's own official transfer/articulation office. Never tell a student outside California to "check ASSIST.org" -- that system doesn't cover them, and saying so would itself be a confident wrong answer.
 
 WHEN UNCERTAIN, ASK -- NEVER GUESS:
@@ -104,12 +115,14 @@ TIER SYSTEM (use consistently):
 - reach: below typical admits, or a very competitive program
 - tag: student meets an explicit transfer guarantee (e.g. California TAG)
 
+MODERATION: If a follow-up message is rude or abusive, nonsensical gibberish, or has nothing to do with college advising, use "mode":"blocked" instead -- put a short, warm-but-firm reminder in "message" that you're only here to help with their college search and need them to keep it respectful and on-topic, and leave summary/schools/top_pick/gaps/next_steps empty. Do not block a message just for being short or casually worded -- only genuinely disrespectful, gibberish, or off-topic input.
+
 OUTPUT FORMAT -- respond ONLY with a single JSON object. No markdown fences, no text outside the JSON:
 {
-  "mode": "recommendation" | "clarify" | "answer",
+  "mode": "recommendation" | "clarify" | "answer" | "blocked",
   "message": "string, always present -- the clarifying question (mode=clarify), a conversational reply (mode=answer, can be 2-4 sentences), or a brief 1-sentence warm intro (mode=recommendation)",
   "summary": "string or null -- 1-2 sentence overview of the student's positioning, only for mode=recommendation",
-  "schools": [ { "name": "string", "program": "string", "tier": "safety|match|reach|tag", "note": "short 1-2 sentence fit note" } ],
+  "schools": [ { "name": "string", "program": "string", "tier": "safety|match|reach|tag", "note": "short 1-2 sentence fit note", "basis": "verified|general", "source": "string or null -- e.g. 'ASSIST.org' or 'general admission trends', only when basis is worth naming" } ],
   "top_pick": { "name": "string", "reasoning": "string" } or null,
   "gaps": ["short phrase naming a missing course or requirement, if any"],
   "next_steps": ["short, concrete, actionable next step"]
@@ -118,6 +131,28 @@ OUTPUT FORMAT -- respond ONLY with a single JSON object. No markdown fences, no 
 Use mode="recommendation" once you have enough to responsibly build a list. Use mode="clarify" when you need more first. Use mode="answer" for a simple follow-up that doesn't require rebuilding the whole list (e.g. "what about Berkeley?") -- in that case keep schools/gaps/next_steps as empty arrays and top_pick as null, and put your full answer in "message".
 
 Every next_steps item should be concrete and specific (e.g. "Verify the ECON 5 equivalency for Business majors on CCSF's official ASSIST.org page" rather than a vague "check requirements"). Weave a reminder to verify with the target school's official transfer office (and ASSIST.org specifically if California) and a counselor into next_steps itself -- the interface already shows a general disclaimer, so don't repeat it as a separate sentence.`;
+}
+
+// --------------------------------------------------------------------------
+//  TRANSCRIPT system prompt -- reads an uploaded transcript image/PDF and
+//  extracts a plain list of courses for the cc_courses card-stack.
+// --------------------------------------------------------------------------
+function buildTranscriptSystemPrompt() {
+  return `You are extracting structured course data from a photo or PDF of a student's academic transcript for Obee, a college-advising app.
+
+Look at the provided transcript and extract every course you can clearly identify, with its letter grade and unit/credit value if shown.
+
+RULES:
+- Only extract courses you can actually read -- never invent or guess a course, grade, or unit value that isn't legible.
+- "grade" must be one of exactly: A+, A, A-, B+, B, B-, C+, C, C-, D+, D, D-, F. If the transcript uses a different scale (numeric, P/NP, percentage, etc.) and it doesn't map cleanly to one of those, return an empty string for that course's grade rather than guessing.
+- "units" is the number as shown (e.g. "3", "3.5", "4"), as a string. Leave it an empty string if not shown.
+- If the file is unreadable, blurry, not a transcript, or you can't extract anything with real confidence, set "readable" to false and return an empty courses array.
+
+Respond ONLY with a single valid JSON object, no markdown fences, no text before or after. Exact shape:
+{
+  "readable": true,
+  "courses": [ { "name": "string", "grade": "string", "units": "string" } ]
+}`;
 }
 
 // --------------------------------------------------------------------------
@@ -146,6 +181,98 @@ function safeParseModelJSON(text) {
     return JSON.parse(cleaned);
   } catch {
     return null;
+  }
+}
+
+const GRADE_OPTIONS = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F'];
+
+// --------------------------------------------------------------------------
+//  TRANSCRIPT UPLOAD -- image/PDF in, extracted course list out. Separate
+//  request shape from the chat modes above (no `messages` array), so it's
+//  handled as its own early branch rather than folded into the main flow.
+// --------------------------------------------------------------------------
+async function handleTranscriptRequest({ fileData, mediaType }, API_KEY, res) {
+  if (typeof fileData !== 'string' || !fileData) {
+    return res.status(400).json({ error: 'fileData is required' });
+  }
+  if (!CONFIG.TRANSCRIPT_MEDIA_TYPES.includes(mediaType)) {
+    return res.status(400).json({ error: 'unsupported_media_type' });
+  }
+  // Strip an accidental data-URL prefix (e.g. "data:image/png;base64,") --
+  // the frontend is expected to already send raw base64, but this keeps a
+  // stray prefix from corrupting the request instead of failing opaquely.
+  const base64 = fileData.replace(/^data:[^;]+;base64,/, '');
+  if (base64.length > CONFIG.TRANSCRIPT_MAX_BASE64_CHARS) {
+    return res.status(400).json({
+      error: 'file_too_large',
+      message: 'That file is too large -- please upload something under 8MB.',
+    });
+  }
+
+  const isPdf = mediaType === 'application/pdf';
+  const fileBlock = isPdf
+    ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64 } }
+    : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } };
+
+  try {
+    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: CONFIG.MODEL,
+        max_tokens: CONFIG.TRANSCRIPT_MAX_TOKENS,
+        system: buildTranscriptSystemPrompt(),
+        messages: [
+          {
+            role: 'user',
+            content: [fileBlock, { type: 'text', text: 'Extract the courses from this transcript.' }],
+          },
+        ],
+      }),
+    });
+
+    const data = await anthropicRes.json();
+
+    if (!anthropicRes.ok) {
+      console.error('Anthropic API error (transcript):', anthropicRes.status, data);
+      const errType = (data && data.error && data.error.type) || '';
+      const errMsg = (data && data.error && data.error.message) || '';
+      const looksLikeCredit =
+        anthropicRes.status === 402 || /credit|billing|quota|insufficient|balance/i.test(errType + ' ' + errMsg);
+      if (looksLikeCredit) {
+        return res.status(200).json({
+          error: 'limit_reached',
+          message: "Obee has reached its usage limit for now 🙏 Please try again soon, or add your courses manually.",
+        });
+      }
+      return res.status(502).json({
+        error: 'upstream_error',
+        message: 'There was a problem reading that file. Please try again in a moment.',
+      });
+    }
+
+    const rawText = (data.content || []).map((c) => c.text || '').join('');
+    const parsed = safeParseModelJSON(rawText);
+    if (!parsed) {
+      return res.status(200).json({ readable: false, courses: [] });
+    }
+
+    const courses = Array.isArray(parsed.courses)
+      ? parsed.courses.slice(0, 100).map((c) => ({
+          name: typeof c.name === 'string' ? c.name.slice(0, 120).trim() : '',
+          grade: GRADE_OPTIONS.includes(c.grade) ? c.grade : '',
+          units: typeof c.units === 'string' || typeof c.units === 'number' ? String(c.units).slice(0, 10).trim() : '',
+        })).filter((c) => c.name)
+      : [];
+
+    return res.status(200).json({ readable: parsed.readable !== false, courses });
+  } catch (err) {
+    console.error('Transcript proxy error:', err);
+    return res.status(500).json({ error: 'internal_error', message: 'Internal error. Please try again.' });
   }
 }
 
@@ -178,10 +305,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
 
-  const { messages, mode, currentStep, profile } = body || {};
+  const { messages, mode, currentStep, profile, fileData, mediaType } = body || {};
+
+  if (mode === 'transcript') {
+    return handleTranscriptRequest({ fileData, mediaType }, API_KEY, res);
+  }
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages must be a non-empty array' });
+  }
+
+  // Reject malformed message shapes outright instead of letting them slip
+  // past the length/limit checks below (e.g. non-string content would
+  // otherwise skip the MAX_INPUT_CHARS check entirely).
+  const hasValidShape = messages.every(
+    (m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
+  );
+  if (!hasValidShape) {
+    return res.status(400).json({ error: 'invalid_message_shape' });
   }
 
   const userTurns = messages.filter((m) => m.role === 'user').length;
@@ -268,7 +409,7 @@ export default async function handler(req, res) {
           parse_warning: true,
         });
       }
-      const allowedModes = ['recommendation', 'clarify', 'answer'];
+      const allowedModes = ['recommendation', 'clarify', 'answer', 'blocked'];
       return res.status(200).json({
         mode: allowedModes.includes(parsed.mode) ? parsed.mode : 'answer',
         message: parsed.message || '',
@@ -296,6 +437,7 @@ export default async function handler(req, res) {
       extracted_data: parsed.extracted_data || {},
       next_step: ALL_STEPS.includes(parsed.next_step) ? parsed.next_step : null,
       needs_clarification: Boolean(parsed.needs_clarification),
+      blocked: Boolean(parsed.blocked),
     });
   } catch (err) {
     console.error('Proxy error:', err);

@@ -54,6 +54,10 @@
     return data;
   }
 
+  async function uploadTranscript(fileData, mediaType) {
+    return callChatApi({ mode: 'transcript', fileData, mediaType });
+  }
+
   function getStep(id) {
     return STEPS[id];
   }
@@ -145,6 +149,7 @@
 
   // ---- Rendering ----
   function render() {
+    window.scrollTo(0, 0);
     const stepId = state.currentStepId;
 
     if (stepId === 'home') {
@@ -179,6 +184,7 @@
         canGoBack: true,
         onBack: goHome,
         onContinue: (payload) => handleContinue(step, payload),
+        profile: state.profile,
       });
       return;
     }
@@ -189,18 +195,48 @@
       onSkip: () => handleContinue(step, { value: null, structured: null, freeformText: '' }, true),
       onContinue: (payload) => handleContinue(step, payload),
       onInfoRequest: (optionValue) => handleInfoRequest(step, optionValue),
+      onTranscriptUpload: uploadTranscript,
+      profile: state.profile,
     });
   }
 
   function handleInfoRequest(step, optionValue) {
     const infoCopy = {
-      what_is_igetc:
-        'IGETC (Intersegmental General Education Transfer Curriculum) is a set of courses CA community college students can complete to satisfy lower-division general education requirements at most UCs and CSUs. Check ASSIST.org for your college\u2019s specific IGETC course list.',
+      what_is_igetc: {
+        title: tr('dynamic.igetcTitle', 'What is IGETC?'),
+        text: tr(
+          'dynamic.igetcText',
+          'IGETC (Intersegmental General Education Transfer Curriculum) is a set of courses CA community college students can complete to satisfy lower-division general education requirements at most UCs and CSUs. Check ASSIST.org for your college\u2019s specific IGETC course list.'
+        ),
+      },
     };
-    alert(infoCopy[optionValue] || 'More info coming soon.');
+    const info = infoCopy[optionValue] || {
+      title: tr('dynamic.moreInfoTitle', 'More info'),
+      text: tr('dynamic.moreInfoText', 'More info coming soon.'),
+    };
+    Engine.renderInfoModal(info.title, info.text);
   }
 
   async function handleContinue(step, payload, isSkip = false) {
+    let interpretResult = null;
+
+    if (!isSkip && payload.freeformText) {
+      interpretResult = await interpretFreeform(step, payload.freeformText);
+      if (interpretResult && interpretResult.limitReached) {
+        state.limitMessage = interpretResult.reply;
+        goTo('limit_reached');
+        return;
+      }
+      if (interpretResult && interpretResult.blocked) {
+        Engine.renderInfoModal(
+          tr('dynamic.keepFriendlyTitle', 'Let’s keep it friendly'),
+          interpretResult.reply ||
+            tr('dynamic.keepFriendlyText', 'I’m only here to help with your college search — let’s keep things respectful and on-topic so I can help you.')
+        );
+        return;
+      }
+    }
+
     state.stepAnswers[step.id] = payload;
 
     if (!isSkip) {
@@ -211,25 +247,47 @@
 
     let determinedNext = nextStepId(step, payload);
 
-    if (!isSkip && payload.freeformText) {
-      const result = await interpretFreeform(step, payload.freeformText);
-      if (result) {
-        if (result.limitReached) {
-          state.limitMessage = result.reply;
-          goTo('limit_reached');
-          return;
-        }
-        if (result.extracted_data && Object.keys(result.extracted_data).length) {
-          Object.assign(state.profile, result.extracted_data);
-        }
-        if (result.next_step && STEPS[result.next_step]) {
-          determinedNext = result.next_step;
-        }
+    if (interpretResult) {
+      if (interpretResult.extracted_data && Object.keys(interpretResult.extracted_data).length) {
+        Object.assign(state.profile, interpretResult.extracted_data);
+      }
+      if (interpretResult.next_step && STEPS[interpretResult.next_step]) {
+        determinedNext = interpretResult.next_step;
       }
     }
 
     saveState();
     goTo(determinedNext);
+  }
+
+  const EMAIL_UNLOCK_KEY = 'obee_unlocked_email';
+
+  function hasUnlockedEmail() {
+    try {
+      return !!localStorage.getItem(EMAIL_UNLOCK_KEY);
+    } catch {
+      return false;
+    }
+  }
+
+  function saveUnlockedEmail(email) {
+    try {
+      localStorage.setItem(EMAIL_UNLOCK_KEY, email);
+    } catch {
+      /* not fatal -- gate will just reappear next time */
+    }
+  }
+
+  async function sendResultsEmail(email, data) {
+    try {
+      await fetch('/api/send-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, results: data }),
+      });
+    } catch (err) {
+      console.error('send-results failed', err);
+    }
   }
 
   async function renderResultsScreen() {
@@ -251,6 +309,16 @@
       }
       state.resultsData = data;
       saveState();
+
+      if (data.mode === 'recommendation' && !hasUnlockedEmail()) {
+        Engine.renderEmailGateModal(async (email) => {
+          saveUnlockedEmail(email);
+          await sendResultsEmail(email, data);
+          mountResults(data);
+        });
+        return;
+      }
+
       mountResults(data);
     } catch (err) {
       console.error(err);
@@ -277,6 +345,14 @@
           onReply({ mode: 'answer', message: reply.reply });
           return;
         }
+        if (reply.mode === 'blocked') {
+          Engine.renderInfoModal(
+            tr('dynamic.keepFriendlyTitle', 'Let’s keep it friendly'),
+            reply.message ||
+              tr('dynamic.keepFriendlyText', 'I’m only here to help with your college search — let’s keep things respectful and on-topic so I can help you.')
+          );
+          return;
+        }
         if (reply.mode === 'recommendation') {
           state.resultsData = reply;
           saveState();
@@ -290,6 +366,17 @@
 
   // ---- Boot ----
   function boot() {
+    const sharedParam = new URLSearchParams(location.search).get('r');
+    if (sharedParam) {
+      const shared = Engine.decodeShareData(sharedParam);
+      if (shared) {
+        state.currentStepId = 'results';
+        state.resultsData = shared;
+        render();
+        return;
+      }
+    }
+
     const hadStoredState = loadState();
     if (!hadStoredState) {
       state.currentStepId = 'home';
@@ -300,7 +387,51 @@
   const logoBtn = document.getElementById('logo-home-btn');
   if (logoBtn) logoBtn.addEventListener('click', goHome);
 
-  document.getElementById('header-cta').addEventListener('click', () => goTo('student_type'));
-
+  initLanguageSwitcher();
   boot();
+
+  // ---- Language switcher (header) ----
+  function initLanguageSwitcher() {
+    const btn = document.getElementById('lang-btn');
+    const dropdown = document.getElementById('lang-dropdown');
+    if (!btn || !dropdown || typeof LANGUAGES === 'undefined') return;
+
+    function paintOptions() {
+      dropdown.innerHTML = '';
+      LANGUAGES.forEach((lang) => {
+        const opt = document.createElement('button');
+        opt.type = 'button';
+        opt.className = 'lang-option' + (lang.code === getLang() ? ' selected' : '');
+        opt.innerHTML = '<span class="lang-flag">' + lang.flag + '</span> ' + lang.label;
+        opt.addEventListener('click', () => {
+          setLang(lang.code);
+          closeDropdown();
+          render();
+        });
+        dropdown.appendChild(opt);
+      });
+    }
+
+    function openDropdown() {
+      paintOptions();
+      dropdown.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+    function closeDropdown() {
+      dropdown.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (dropdown.classList.contains('open')) closeDropdown();
+      else openDropdown();
+    });
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target) && e.target !== btn) closeDropdown();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeDropdown();
+    });
+  }
 })();

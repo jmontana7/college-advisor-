@@ -1,3 +1,4 @@
+
 // ============================================================================
 //  Obee -- Rendering engine for the intake flow
 // ----------------------------------------------------------------------------
@@ -11,6 +12,75 @@ const TIER_META = {
   reach: { label: 'Reach', cls: 'tier-reach', icon: '\uD83D\uDD34' },
   tag: { label: 'TAG Eligible', cls: 'tier-tag', icon: '\u2B50' },
 };
+
+// ============================================================================
+//  i18n -- English lives inline in index.html/steps.js/engine.js and is the
+//  fallback; TRANSLATIONS (i18n.js) holds the other languages. Nothing here
+//  is destructive: translateStep() returns a shallow-merged copy, and tr()
+//  always falls back to the literal English string already in the caller.
+// ============================================================================
+let currentLang = 'en';
+try {
+  currentLang = localStorage.getItem('obee_lang') || 'en';
+} catch {
+  /* storage unavailable -- default to English */
+}
+
+function getLang() {
+  return currentLang;
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  try {
+    localStorage.setItem('obee_lang', lang);
+  } catch {
+    /* not fatal -- just won't persist across reloads */
+  }
+}
+
+// Dotted-path lookup into TRANSLATIONS[currentLang], e.g. tr('ui.navBack', 'Back').
+function tr(path, fallback) {
+  if (currentLang === 'en') return fallback;
+  const dict = TRANSLATIONS[currentLang];
+  if (!dict) return fallback;
+  const value = path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), dict);
+  return value !== undefined ? value : fallback;
+}
+
+// Overlays the current language's copy for one step onto a shallow clone --
+// title/subtitle/helperText/placeholders plus nested option labels, card
+// field labels/placeholders (and any college-choice sub-labels), slider
+// labels, and score field labels. Anything not translated keeps the
+// original English value.
+function translateStep(step) {
+  if (currentLang === 'en') return step;
+  const dict = TRANSLATIONS[currentLang];
+  const t = dict && dict.steps && dict.steps[step.id];
+  if (!t) return step;
+
+  const translated = { ...step };
+  if (t.title) translated.title = t.title;
+  if (t.subtitle) translated.subtitle = t.subtitle;
+  if (t.helperText) translated.helperText = t.helperText;
+  if (t.freeformPlaceholder) translated.freeformPlaceholder = t.freeformPlaceholder;
+  if (t.schoolFieldLabel) translated.schoolFieldLabel = t.schoolFieldLabel;
+  if (t.optionalToggle) translated.optionalToggle = t.optionalToggle;
+
+  if (t.options && Array.isArray(step.options)) {
+    translated.options = step.options.map((opt) => (t.options[opt.value] ? { ...opt, label: t.options[opt.value] } : opt));
+  }
+  if (t.cardFields && Array.isArray(step.cardFields)) {
+    translated.cardFields = step.cardFields.map((f) => (t.cardFields[f.key] ? { ...f, ...t.cardFields[f.key] } : f));
+  }
+  if (t.sliders && Array.isArray(step.sliders)) {
+    translated.sliders = step.sliders.map((s) => (t.sliders[s.key] ? { ...s, label: t.sliders[s.key] } : s));
+  }
+  if (t.scoreFields && Array.isArray(step.scoreFields)) {
+    translated.scoreFields = step.scoreFields.map((f) => (t.scoreFields[f.key] ? { ...f, ...t.scoreFields[f.key] } : f));
+  }
+  return translated;
+}
 
 const Engine = (() => {
   const root = document.getElementById('app-root');
@@ -33,15 +103,331 @@ const Engine = (() => {
     return node;
   }
 
+  // ---- Shareable results links: pack/unpack results JSON into a URL param ----
+  function encodeShareData(data) {
+    try {
+      return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+    } catch {
+      return null;
+    }
+  }
+
+  function decodeShareData(str) {
+    try {
+      return JSON.parse(decodeURIComponent(escape(atob(str))));
+    } catch {
+      return null;
+    }
+  }
+
   // ---- HOME ----
   function renderHome(onFindPath) {
     const node = mountTemplate('tpl-home');
     node.querySelectorAll('.js-start').forEach((btn) => btn.addEventListener('click', onFindPath));
     const logoBtn = document.getElementById('logo-home-btn');
     if (logoBtn) logoBtn.onclick = () => {}; // already home; no-op, avoids double-binding surprises
+    applyHomeTranslations(node);
+    typewriterHeroQuote(node);
     wireFaqAccordion(node);
     wireScrollReveal(node);
+    buildDotField(node);
+    syncVideoCardHeight(node);
+    buildFlowCarousel(node);
     return node;
+  }
+
+  // Types the hero quote out character by character, like a typewriter, on
+  // first paint -- runs after applyHomeTranslations so it always animates
+  // whatever text actually ended up on screen (English or a translation).
+  // Splits on the existing bold/regular text nodes so the two-weight
+  // styling stays correct as characters appear, instead of just typing
+  // into a single plain-text node. Once the quote finishes, the citation
+  // ("Nelson Mandela") types out the same way right after it.
+  function typewriterHeroQuote(node) {
+    const heroQuote = node.querySelector('.hero-quote');
+    const quoteRegular = heroQuote && heroQuote.querySelector('.quote-regular');
+    const heroCite = node.querySelector('.hero-cite');
+    if (!heroQuote || !quoteRegular) return;
+
+    const regularText = quoteRegular.textContent;
+    const boldText = heroQuote.textContent.slice(0, heroQuote.textContent.length - regularText.length);
+
+    const boldNode = document.createTextNode('');
+    const regularSpan = document.createElement('span');
+    regularSpan.className = 'quote-regular';
+    heroQuote.innerHTML = '';
+    heroQuote.appendChild(boldNode);
+    heroQuote.appendChild(regularSpan);
+    heroQuote.classList.add('typing');
+
+    const speed = 41;
+    // Cleared immediately (not inside typeCite) so "Nelson Mandela" stays
+    // invisible for the whole quote animation instead of flashing on
+    // screen at full length before typeCite finally clears it.
+    const citeText = heroCite ? heroCite.textContent : '';
+    if (heroCite) heroCite.textContent = '';
+
+    function typeCite() {
+      if (!heroCite) return;
+      heroCite.classList.add('typing');
+      let j = 0;
+      (function citeTick() {
+        j++;
+        heroCite.textContent = citeText.slice(0, j);
+        if (j < citeText.length) {
+          setTimeout(citeTick, speed);
+        } else {
+          heroCite.classList.remove('typing');
+        }
+      })();
+    }
+
+    const total = boldText.length + regularText.length;
+    let i = 0;
+    (function tick() {
+      i++;
+      if (i <= boldText.length) {
+        boldNode.textContent = boldText.slice(0, i);
+      } else {
+        regularSpan.textContent = regularText.slice(0, i - boldText.length);
+      }
+      if (i < total) {
+        setTimeout(tick, speed);
+      } else {
+        heroQuote.classList.remove('typing');
+        typeCite();
+      }
+    })();
+  }
+
+  // Overlays the current language's copy onto every static string on the
+  // home screen. No-op (returns immediately) in English, since that's
+  // already what the template contains.
+  function applyHomeTranslations(node) {
+    if (currentLang === 'en') return;
+    const ui = tr('ui', null);
+    if (!ui) return;
+
+    const heroQuote = node.querySelector('.hero-quote');
+    const quoteRegular = heroQuote && heroQuote.querySelector('.quote-regular');
+    if (heroQuote && quoteRegular && ui.heroQuoteBold) {
+      heroQuote.innerHTML =
+        '“' + ui.heroQuoteBold + ' <span class="quote-regular">' + (ui.heroQuoteRegular || '') + '”</span>';
+    }
+    setText(node, '.hero-cite', ui.heroCite);
+    setText(node, '.hero-sub', ui.heroSub);
+    setText(node, '.hero .cta-pill--soft', ui.heroCta);
+
+    setText(node, '.app-card--video .card-title', ui.card1Title);
+    const card1Bodies = node.querySelectorAll('.app-card--video .card-body');
+    if (card1Bodies[0] && ui.card1Body1) card1Bodies[0].textContent = ui.card1Body1;
+    if (card1Bodies[1] && ui.card1Body2) card1Bodies[1].textContent = ui.card1Body2;
+    setText(node, '.app-card--video .cta-pill--dark', ui.card1Cta);
+    setText(node, '.app-card:not(.app-card--video) .app-card-panel .cta-pill', ui.card2Cta);
+
+    if (ui.features) {
+      const featureLabels = { integrated: 'Integrated', secure: 'Secure', open: 'Open', reliable: 'Reliable', affordable: 'Affordable', honest: 'Honest' };
+      node.querySelectorAll('.feature-item').forEach((item) => {
+        const original = item.textContent.trim();
+        const key = Object.keys(featureLabels).find((k) => featureLabels[k] === original);
+        if (key && ui.features[key]) {
+          // The emoji/icon is a separate <img>; only the trailing text node changes.
+          const textNode = Array.from(item.childNodes).find((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+          if (textNode) textNode.textContent = ' ' + ui.features[key];
+        }
+      });
+    }
+
+    if (ui.flow) {
+      const flowKeys = ['tellObee', 'explore', 'doubleCheck', 'refine', 'launch'];
+      node.querySelectorAll('.flow-carousel-label').forEach((label, i) => {
+        const key = flowKeys[i];
+        if (key && ui.flow[key]) label.innerHTML = ui.flow[key];
+      });
+    }
+
+    setText(node, '.faq-title', ui.faqTitle, true);
+    if (Array.isArray(ui.faq)) {
+      node.querySelectorAll('.faq-row').forEach((row, i) => {
+        const t = ui.faq[i];
+        if (!t) return;
+        const qEl = row.querySelector('.faq-row-head span:first-child');
+        const aEl = row.querySelector('.faq-answer-inner');
+        if (qEl && t.q) qEl.textContent = t.q;
+        if (aEl && t.a) aEl.innerHTML = t.a;
+      });
+    }
+
+    setText(node, '.final-card h2', ui.finalCtaTitle);
+    setText(node, '.final-card .cta-pill--dark', ui.finalCtaBtn);
+    setText(node, '.footer-copy', ui.footerCopy);
+  }
+
+  // Small helper for the home-screen translation pass above: sets
+  // textContent (or innerHTML when a string may contain a <br>) on the
+  // first match, no-op if the selector doesn't resolve or there's no value.
+  function setText(root, selector, value, isHTML) {
+    if (!value) return;
+    const el = root.querySelector(selector);
+    if (!el) return;
+    if (isHTML) el.innerHTML = value;
+    else el.textContent = value;
+  }
+
+  // ---- Twinkling dot field behind the flow carousel, with a fixed
+  // dot-matrix "OBEE" plotted among the randomly-timed dots so it pulses
+  // into sync every so often instead of just being background noise. ----
+  // Size card 1 (and card 2, to match) so the video panel's height exactly
+  // fits the video's own 4:3 aspect ratio at its rendered width -- no
+  // letterbox bars, no cropping. Recomputed on resize.
+  function syncVideoCardHeight(root) {
+    const panel = root.querySelector('.app-card-panel--video');
+    if (!panel) return;
+    const card = panel.closest('.app-card');
+    const cards = root.querySelectorAll('.app-card');
+    const secondCard = cards[1];
+    if (!card) return;
+
+    function apply() {
+      if (window.innerWidth <= 900) {
+        card.style.height = '';
+        card.style.minHeight = '';
+        if (secondCard) { secondCard.style.height = ''; secondCard.style.minHeight = ''; }
+        return;
+      }
+      const width = panel.getBoundingClientRect().width;
+      if (!width) return;
+      // The base .app-card rule sets min-height: 540px, which would otherwise
+      // clamp this shorter, video-driven height right back up to 540.
+      // +18px over the video's exact 4:3 ratio gives the text column (card 1)
+      // and features grid (card 2) genuine breathing room at the bottom --
+      // the video absorbs it invisibly via object-fit: cover, a tiny crop.
+      const height = Math.round(width * (3 / 4)) + 18;
+      card.style.minHeight = '0';
+      card.style.height = height + 'px';
+      if (secondCard) {
+        secondCard.style.minHeight = '0';
+        secondCard.style.height = height + 'px';
+      }
+    }
+
+    apply();
+    window.addEventListener('resize', apply);
+  }
+
+  function buildDotField(root) {
+    const field = root.querySelector('.flow-dot-field');
+    if (!field) return;
+
+    const SPACING = 24;
+    const rect = field.getBoundingClientRect();
+    const cols = Math.max(1, Math.floor(rect.width / SPACING));
+    const rows = Math.max(1, Math.floor(rect.height / SPACING));
+
+    const LETTERS = {
+      O: ['0110', '1001', '1001', '1001', '0110'],
+      B: ['1110', '1001', '1110', '1001', '1110'],
+      E: ['1111', '1000', '1110', '1000', '1111'],
+    };
+    const WORD = ['O', 'B', 'E', 'E'];
+    const letterWidth = 4;
+    const gap = 1;
+    const wordWidth = WORD.length * letterWidth + (WORD.length - 1) * gap;
+    const wordHeight = 5;
+    const startCol = Math.floor((cols - wordWidth) / 2);
+    // Only plot the word if the top padding band is tall enough to hold it
+    // clear of the carousel row -- with a tightly cropped board there may
+    // not be room, in which case it's skipped rather than risk it landing
+    // behind the (now much bigger) images.
+    const topBandRows = Math.floor(parseFloat(getComputedStyle(root.querySelector('.flow-cascade')).paddingTop) / SPACING);
+    const startRow = topBandRows >= wordHeight + 1 ? 1 : -1;
+
+    function isObeeDot(col, row) {
+      if (startCol < 0 || startRow < 0) return false;
+      const relCol = col - startCol;
+      const relRow = row - startRow;
+      if (relRow < 0 || relRow >= wordHeight || relCol < 0 || relCol >= wordWidth) return false;
+      let cursor = 0;
+      for (const letter of WORD) {
+        if (relCol >= cursor && relCol < cursor + letterWidth) {
+          return LETTERS[letter][relRow][relCol - cursor] === '1';
+        }
+        cursor += letterWidth + gap;
+      }
+      return false;
+    }
+
+    field.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    field.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+    const frag = document.createDocumentFragment();
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const dot = document.createElement('span');
+        const isObee = isObeeDot(c, r);
+        dot.className = isObee ? 'flow-twinkle-dot flow-twinkle-dot--obee' : 'flow-twinkle-dot';
+        if (isObee) {
+          dot.style.animationDuration = '2.6s';
+          dot.style.animationDelay = '0s';
+        } else {
+          dot.style.animationDuration = (2 + Math.random() * 2.5).toFixed(2) + 's';
+          dot.style.animationDelay = (Math.random() * 4).toFixed(2) + 's';
+        }
+        frag.appendChild(dot);
+      }
+    }
+    field.appendChild(frag);
+  }
+
+  // Cycles the flow-carousel cards, typing each label letter by letter,
+  // left to right (at a fixed per-character pace, so a slot's length
+  // matches its own text length) and keeping the progress dots in sync
+  // with whichever card is currently active.
+  function buildFlowCarousel(root) {
+    const cards = Array.from(root.querySelectorAll('.flow-carousel-card'));
+    if (!cards.length) return;
+    const dots = Array.from(root.querySelectorAll('.flow-dot'));
+
+    const PACE_MS = 70;
+    // Extra hold after a label finishes typing, so there's time to actually
+    // read it before the next card starts.
+    const GAP_MS = 1300;
+    let timer = null;
+
+    function playCard(index) {
+      cards.forEach((c, i) => c.classList.toggle('is-active', i === index));
+      dots.forEach((d, i) => d.classList.toggle('is-active', i === index));
+
+      const card = cards[index];
+      const label = card.querySelector('.flow-carousel-label');
+      if (label._flowAnim) label._flowAnim.cancel();
+
+      const steps = Math.max(label.textContent.trim().replace(/\s+/g, '').length, 1);
+      let duration;
+
+      // Below 720px there's no single line wide enough for the longest
+      // label at a readable size -- the clip reveal needs nowrap, so on
+      // narrow screens skip it and just let the full (wrapped) label fade
+      // in with the card instead.
+      if (window.innerWidth <= 720) {
+        label.style.width = 'auto';
+        duration = Math.min(steps * PACE_MS, 1300);
+      } else {
+        label.style.width = 'auto';
+        const fullWidth = label.getBoundingClientRect().width;
+        label.style.width = '0px';
+        duration = steps * PACE_MS;
+        label._flowAnim = label.animate(
+          [{ width: '0px' }, { width: fullWidth + 'px' }],
+          { duration, easing: `steps(${steps}, end)`, fill: 'forwards' }
+        );
+      }
+
+      clearTimeout(timer);
+      timer = setTimeout(() => playCard((index + 1) % cards.length), duration + GAP_MS);
+    }
+
+    playCard(0);
   }
 
   function wireFaqAccordion(node) {
@@ -55,7 +441,7 @@ const Engine = (() => {
   }
 
   function wireScrollReveal(node) {
-    const targets = node.querySelectorAll('.app-card');
+    const targets = node.querySelectorAll('.app-card, .flow-cascade');
     if (!('IntersectionObserver' in window)) {
       targets.forEach((t) => t.classList.add('revealed'));
       return;
@@ -76,34 +462,34 @@ const Engine = (() => {
 
   // ---- THINKING ----
   const THINKING_MESSAGES = [
-    'Finding your perfect match...',
-    'One step closer...',
-    'Refining your ideal college list...',
-    'Comparing your options...',
+    'Reading your profile...',
+    'Scanning thousands of schools...',
+    'Finding your right path...',
+    'Weighing your odds...',
+    'Cross-checking admission trends...',
+    'Separating the reach from the reality...',
+    'Assembling your college list...',
     'Almost there...',
   ];
-  const THINKING_ICONS = ['\uD83C\uDF93', '\uD83E\uDD1D', '\uD83D\uDCDA', '\u2728'];
 
   function renderThinking() {
     const node = mountTemplate('tpl-thinking');
     const label = node.querySelector('.thinking-label');
-    const iconEl = node.querySelector('.thinking-icon');
+    label.textContent = tr('ui.thinkingLabel', label.textContent);
+    const messages = tr('dynamic.thinkingMessages', THINKING_MESSAGES);
     let i = 0;
 
     function paint(idx) {
-      label.textContent = THINKING_MESSAGES[idx];
-      if (iconEl) iconEl.textContent = THINKING_ICONS[idx % THINKING_ICONS.length];
+      label.textContent = messages[idx];
     }
     paint(0);
 
     const timer = setInterval(() => {
-      i = (i + 1) % THINKING_MESSAGES.length;
+      i = (i + 1) % messages.length;
       label.classList.remove('thinking-fade');
-      if (iconEl) iconEl.classList.remove('thinking-fade');
       // eslint-disable-next-line no-unused-expressions
       void label.offsetWidth; // restart CSS animation
       label.classList.add('thinking-fade');
-      if (iconEl) iconEl.classList.add('thinking-fade');
       paint(i);
     }, 1500);
 
@@ -122,28 +508,70 @@ const Engine = (() => {
   // ---- LIMIT REACHED ----
   function renderLimitReached(message) {
     const node = mountTemplate('tpl-limit-reached');
+    const titleEl = node.querySelector('h2');
+    if (titleEl) titleEl.textContent = tr('ui.limitTitle', titleEl.textContent);
     node.querySelector('.limit-message').textContent =
       message || 'We\u2019ve reached our usage limit for now. Please check back soon.';
     return node;
   }
 
   // ---- QUESTION SCREEN ----
-  function renderQuestion(step, currentValue, callbacks) {
+  function renderQuestion(rawStep, currentValue, callbacks) {
+    const step = translateStep(rawStep);
     const node = mountTemplate('tpl-question-screen');
+    // Every step gets its own hook class, independent of field type or
+    // splitImage -- lets any single screen's CSS be tuned without touching
+    // the rest (same pattern as question-split--step-<id> for split steps).
+    node.classList.add('question-screen--step-' + step.id);
+    // The card-stack + image combo needs more than the screen's normal
+    // 920px cap to fit a 720px-wide card next to the illustration. The GPA
+    // dual-slider page needs the same room -- its nowrap labels otherwise
+    // squeeze the illustration column down to a sliver.
+    if ((step.field === 'card-stack' || step.field === 'dual-slider') && step.splitImage) {
+      node.classList.add('question-screen--wide');
+    }
 
     node.querySelector('.question-title').textContent = step.title;
     const subEl = node.querySelector('.question-sub');
     subEl.textContent = step.subtitle || '';
+    if (step.skippable) {
+      const optionalNote = document.createElement('p');
+      optionalNote.className = 'question-optional-note';
+      optionalNote.textContent = '(' + tr('ui.optionalLabel', 'optional') + ')';
+      subEl.insertAdjacentElement('afterend', optionalNote);
+    }
+
+    const progressWrap = node.querySelector('.question-progress');
+    const flowSteps = step.flow && FLOW_ORDER[step.flow];
+    if (flowSteps && step.order) {
+      const total = flowSteps.length;
+      const current = Math.min(step.order, total);
+      node.querySelector('.question-progress-label').textContent = `Step ${current} of ${total}`;
+      node.querySelector('.question-progress-fill').style.width = (current / total) * 100 + '%';
+    } else {
+      progressWrap.style.display = 'none';
+    }
 
     const body = node.querySelector('.question-body');
+    // Whatever the field renders below goes in here rather than straight into
+    // `body` -- if the step has a splitImage, this whole block gets dropped
+    // into the right-hand column of a two-up layout instead (see the
+    // splitImage handling after the field-type blocks); otherwise it's
+    // appended to `body` as-is, unchanged from the old direct-append shape.
+    const fieldContent = document.createElement('div');
+    fieldContent.className = 'question-field-content';
     let localSelection = currentValue && currentValue.value !== undefined ? currentValue.value : null;
     let localStructured = currentValue && currentValue.structured ? currentValue.structured : null;
+    // Set by the card-stack branch below when step.transcriptUpload is on --
+    // the splitImage block (further down) tucks it under Obee's image
+    // instead of inside the card itself.
+    let transcriptUploadBox = null;
 
     if (step.helperText) {
       const helper = document.createElement('p');
       helper.className = 'helper-text';
       helper.textContent = step.helperText;
-      body.appendChild(helper);
+      fieldContent.appendChild(helper);
     }
 
     const continueBtn = node.querySelector('.continue-btn');
@@ -152,14 +580,23 @@ const Engine = (() => {
     const freeformInput = node.querySelector('.freeform-input');
     const micBtn = node.querySelector('.mic-btn');
 
+    backBtn.textContent = tr('ui.navBack', backBtn.textContent);
+    skipBtn.textContent = tr('ui.navSkip', skipBtn.textContent);
+    continueBtn.textContent = tr('ui.navContinue', continueBtn.textContent);
+    freeformInput.placeholder = tr('ui.freeformPlaceholder', freeformInput.placeholder);
+
     function refreshContinueState() {
       const hasFreeform = freeformInput.value.trim().length > 0;
       let hasSelection = localSelection !== null;
 
       if (step.field === 'dropdown') {
-        hasSelection = step.stateOnly
-          ? Boolean(localStructured && localStructured.state)
-          : Boolean(localStructured && localStructured.state && localStructured.name);
+        if (step.stateOnly) {
+          hasSelection = step.includeSchoolField
+            ? Boolean(localStructured && localStructured.state && localStructured.school)
+            : Boolean(localStructured && localStructured.state);
+        } else {
+          hasSelection = Boolean(localStructured && localStructured.state && localStructured.name);
+        }
       } else if (Array.isArray(localStructured)) {
         hasSelection = hasSelection || localStructured.length > 0;
       } else if (localStructured && typeof localStructured === 'object') {
@@ -170,41 +607,74 @@ const Engine = (() => {
           );
       }
 
+      // Some options (e.g. "I have my schools") require the student to
+      // actually type them in the chat box before continuing -- picking the
+      // option alone isn't enough, unlike every other options step.
+      if (step.field === 'options' && step.optionsRequireFreeform && step.optionsRequireFreeform.includes(localSelection)) {
+        hasSelection = hasSelection && hasFreeform;
+      }
+
       const alwaysContinuable = ['slider', 'dual-slider', 'score-card'].includes(step.field);
       continueBtn.disabled = !(hasSelection || hasFreeform || alwaysContinuable);
     }
 
     // ---- field renderers ----
-    if (step.field === 'options') {
-      const row = document.createElement('div');
-      row.className = 'opt-row';
-      step.options.forEach((opt) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'opt-btn';
+    function buildOptButton(opt, container, extraClass) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = extraClass ? `opt-btn ${extraClass}` : 'opt-btn';
+      if (opt.image) {
+        btn.classList.add('opt-btn--image');
+        const img = document.createElement('img');
+        img.src = opt.image;
+        img.alt = opt.label;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        btn.appendChild(img);
+      } else {
         btn.textContent = opt.label;
-        if (localSelection === opt.value) btn.classList.add('selected');
-        btn.addEventListener('click', () => {
-          if (opt.isInfo) {
-            callbacks.onInfoRequest && callbacks.onInfoRequest(opt.value);
-            return;
-          }
-          localSelection = opt.value;
-          row.querySelectorAll('.opt-btn').forEach((b) => b.classList.remove('selected'));
-          btn.classList.add('selected');
-          refreshContinueState();
-        });
-        row.appendChild(btn);
+      }
+      if (localSelection === opt.value) btn.classList.add('selected');
+      btn.addEventListener('click', () => {
+        if (opt.isInfo) {
+          callbacks.onInfoRequest && callbacks.onInfoRequest(opt.value);
+          return;
+        }
+        localSelection = opt.value;
+        container.querySelectorAll('.opt-btn').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        refreshContinueState();
       });
-      body.appendChild(row);
+      return btn;
+    }
+
+    if (step.field === 'options') {
+      // stackedImage sits above the options row, inline in the normal
+      // top-to-bottom flow -- unlike splitImage, which puts the image in
+      // its own left/right column next to the field.
+      if (step.stackedImage) {
+        const stacked = document.createElement('img');
+        stacked.className = 'question-stacked-image';
+        stacked.src = step.stackedImage;
+        stacked.alt = '';
+        stacked.loading = 'lazy';
+        stacked.decoding = 'async';
+        fieldContent.appendChild(stacked);
+      }
+      const container = document.createElement('div');
+      container.className = (step.splitImage || step.imageOptions) ? 'opt-stack' : 'opt-row';
+      step.options.forEach((opt) => {
+        container.appendChild(buildOptButton(opt, container, (step.splitImage || step.imageOptions) ? 'opt-btn--stacked' : undefined));
+      });
+      fieldContent.appendChild(container);
     }
 
     if (step.field === 'slider') {
       localStructured = localStructured || { value: step.slider.default };
-      body.appendChild(
+      fieldContent.appendChild(
         buildSlider(step.slider, localStructured.value, (v) => {
           localStructured.value = v;
-        })
+        }, step.id)
       );
     }
 
@@ -214,40 +684,125 @@ const Engine = (() => {
       group.className = 'slider-group';
       step.sliders.forEach((s) => {
         const wrap = document.createElement('div');
+        const labelRow = document.createElement('div');
+        labelRow.className = 'slider-row-head';
+        if (!s.optional) labelRow.classList.add('slider-row-head--solo');
         const label = document.createElement('p');
         label.className = 'slider-row-label';
         label.textContent = s.label;
-        wrap.appendChild(label);
-        const initial = localStructured[s.key] !== undefined ? localStructured[s.key] : s.default;
-        localStructured[s.key] = initial;
-        wrap.appendChild(
-          buildSlider(s, initial, (v) => {
-            localStructured[s.key] = v;
-          })
-        );
+        labelRow.appendChild(label);
+        wrap.appendChild(labelRow);
+
+        // A stored `null` means the student already opted out via the
+        // toggle below -- show the default on the dial itself (never the
+        // literal value "null") while the toggle's own selected/disabled
+        // state is what actually remembers the opt-out.
+        const storedValue = localStructured[s.key];
+        const optedOut = storedValue === null;
+        const initial = storedValue !== undefined && storedValue !== null ? storedValue : s.default;
+        localStructured[s.key] = optedOut ? null : initial;
+        const sliderEl = buildSlider(s, initial, (v) => {
+          localStructured[s.key] = v;
+        }, step.id + '-' + s.key);
+        wrap.appendChild(sliderEl);
+
+        // Optional sliders (e.g. transferable GPA) get a toggle so the
+        // student can explicitly opt out instead of just leaving the
+        // default value in place, which would otherwise look like a
+        // deliberate answer rather than "not applicable".
+        if (s.optional) {
+          const toggleBtn = document.createElement('button');
+          toggleBtn.type = 'button';
+          toggleBtn.className = 'slider-optional-toggle';
+          toggleBtn.textContent = step.optionalToggle || 'Doesn’t apply to me';
+          let isDisabled = optedOut;
+          if (isDisabled) {
+            toggleBtn.classList.add('selected');
+            sliderEl.classList.add('slider-wrap--disabled');
+            sliderEl.querySelector('input').disabled = true;
+          }
+          toggleBtn.addEventListener('click', () => {
+            isDisabled = !isDisabled;
+            toggleBtn.classList.toggle('selected', isDisabled);
+            sliderEl.classList.toggle('slider-wrap--disabled', isDisabled);
+            const input = sliderEl.querySelector('input');
+            input.disabled = isDisabled;
+            localStructured[s.key] = isDisabled ? null : parseFloat(input.value);
+          });
+          labelRow.appendChild(toggleBtn);
+        }
+
         group.appendChild(wrap);
       });
-      body.appendChild(group);
+      fieldContent.appendChild(group);
     }
 
     if (step.field === 'card-stack') {
       localStructured = Array.isArray(localStructured) ? localStructured : [];
-      body.appendChild(buildCardStack(step.cardFields, localStructured, refreshContinueState));
+      const cardStack = buildCardStack(step.cardFields, localStructured, refreshContinueState, callbacks.profile, {
+        enableTranscriptUpload: Boolean(step.transcriptUpload),
+        onTranscriptUpload: callbacks.onTranscriptUpload,
+      });
+      fieldContent.appendChild(cardStack.wrap);
+      transcriptUploadBox = cardStack.uploadBox;
     }
 
     if (step.field === 'dropdown') {
-      localStructured = localStructured || { state: '', name: '', manualEntry: false };
-      body.appendChild(buildDropdown(step, localStructured, refreshContinueState));
+      localStructured = localStructured || { state: '', name: '', manualEntry: false, school: '' };
+      fieldContent.appendChild(buildDropdown(step, localStructured, refreshContinueState));
     }
 
     if (step.field === 'score-card') {
       localStructured = localStructured || {};
-      body.appendChild(buildScoreCard(step.scoreFields, localStructured));
+      fieldContent.appendChild(buildScoreCard(step.scoreFields, localStructured));
     }
 
-    if (step.field === 'freeform-only' && step.freeformPlaceholder) {
-      freeformInput.style.minHeight = '120px';
+    // A single splitImage handler for every field type: image on one side,
+    // whatever the field rendered above on the other. splitImagePosition
+    // controls which side the image lands on ('left' by default, or
+    // 'right' to put the field content first via CSS order).
+    if (step.splitImage) {
+      const split = document.createElement('div');
+      split.className = 'question-split';
+      if (step.splitImagePosition === 'right') split.classList.add('question-split--reverse');
+      if (step.splitWide) split.classList.add('question-split--wide');
+      // card-stack needs a fixed 720px column (see .entry-card) that a plain
+      // 1fr/1fr grid can't guarantee -- this switches that combo to flex
+      // with an explicit basis instead, without touching the grid layout
+      // every other splitImage step still relies on.
+      if (step.field === 'card-stack') split.classList.add('question-split--card');
+      split.classList.add('question-split--step-' + step.id);
+
+      const imgWrap = document.createElement('div');
+      imgWrap.className = 'question-split-image';
+      const img = document.createElement('img');
+      img.src = step.splitImage;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      if (transcriptUploadBox) {
+        // A single wrapped child (stacked column: image, then upload box)
+        // keeps imgWrap's own row/anchor sizing (used to grow/position the
+        // image on some steps) untouched -- it still only ever sees one item.
+        const stack = document.createElement('div');
+        stack.className = 'split-image-stack';
+        stack.appendChild(img);
+        stack.appendChild(transcriptUploadBox);
+        imgWrap.appendChild(stack);
+      } else {
+        imgWrap.appendChild(img);
+      }
+
+      split.appendChild(imgWrap);
+      split.appendChild(fieldContent);
+      body.appendChild(split);
+    } else {
+      body.appendChild(fieldContent);
     }
+
+    // NOTE: freeform box no longer forces a tall initial height -- it starts
+    // compact and grows naturally as the student types (see the 'input'
+    // listener below), which keeps short placeholders vertically centered.
 
     if (step.freeformPlaceholder) {
       freeformInput.placeholder = step.freeformPlaceholder;
@@ -287,7 +842,156 @@ const Engine = (() => {
     return node;
   }
 
-  // ---- voice input (Web Speech API -- Chrome/Edge only, gracefully hidden elsewhere) ----
+  // ---- INFO MODAL (replaces native alert() for in-flow explanations) ----
+  function renderInfoModal(title, text) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+
+    const icon = document.createElement('img');
+    icon.className = 'modal-icon';
+    icon.src = 'assets/obee-obelisk-transparent.png';
+    icon.alt = '';
+
+    const h = document.createElement('h3');
+    h.className = 'modal-title';
+    h.textContent = title;
+
+    const p = document.createElement('p');
+    p.className = 'modal-text';
+    p.textContent = text;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'modal-close cta-pill cta-pill--dark';
+    closeBtn.textContent = tr('ui.modalGotIt', 'Got it');
+
+    function close() {
+      overlay.remove();
+      document.removeEventListener('keydown', onKeydown);
+    }
+    function onKeydown(e) {
+      if (e.key === 'Escape') close();
+    }
+
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener('keydown', onKeydown);
+
+    card.appendChild(icon);
+    card.appendChild(h);
+    card.appendChild(p);
+    card.appendChild(closeBtn);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  // ---- EMAIL GATE MODAL -- shown right as results finish loading; the
+  // student's email unlocks the list (and gets a copy sent to them). Unlike
+  // renderInfoModal this one has no close button, overlay-click, or Escape
+  // dismissal -- it's a required step, not an aside. onSubmit(email) must
+  // return a promise; the modal closes once it resolves. ----
+  function renderEmailGateModal(onSubmit) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+
+    const icon = document.createElement('img');
+    icon.className = 'modal-icon';
+    icon.src = 'assets/obee-obelisk-transparent.png';
+    icon.alt = '';
+
+    const h = document.createElement('h3');
+    h.className = 'modal-title';
+    h.textContent = tr('dynamic.emailGateTitle', 'Your results are ready! 🎉');
+
+    const p = document.createElement('p');
+    p.className = 'modal-text';
+    p.textContent = tr(
+      'dynamic.emailGateText',
+      'Enter your email to unlock your personalized college list -- we’ll send you a copy too, so you never lose it.'
+    );
+
+    const form = document.createElement('form');
+    form.className = 'modal-email-form';
+    form.noValidate = true;
+
+    const inputWrap = document.createElement('div');
+    inputWrap.className = 'modal-email-input-wrap';
+    const input = document.createElement('input');
+    input.type = 'email';
+    input.className = 'modal-email-input';
+    input.placeholder = tr('dynamic.emailGatePlaceholder', 'you@email.com');
+    input.autocomplete = 'email';
+    inputWrap.appendChild(input);
+
+    const error = document.createElement('p');
+    error.className = 'modal-email-error';
+
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'submit';
+    submitBtn.className = 'modal-email-submit cta-pill cta-pill--dark';
+    const idleLabel = tr('dynamic.emailGateButton', 'Unlock my results');
+    const loadingLabel = tr('dynamic.emailGateButtonLoading', 'Sending…');
+    submitBtn.textContent = idleLabel;
+
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = input.value.trim();
+      if (!EMAIL_RE.test(email)) {
+        error.textContent = tr('dynamic.emailGateInvalid', 'Please enter a valid email address.');
+        return;
+      }
+      error.textContent = '';
+      input.disabled = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = loadingLabel;
+      Promise.resolve(onSubmit(email)).then(() => {
+        overlay.remove();
+      });
+    });
+
+    form.appendChild(inputWrap);
+    form.appendChild(error);
+    form.appendChild(submitBtn);
+
+    card.appendChild(icon);
+    card.appendChild(h);
+    card.appendChild(p);
+    card.appendChild(form);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    setTimeout(() => input.focus(), 50);
+    return overlay;
+  }
+
+
+  const VOICE_ERROR_MESSAGES = {
+    'not-allowed': 'Microphone access blocked -- check your browser’s site permissions.',
+    'service-not-allowed': 'Voice input isn’t available on this connection (needs https).',
+    'no-speech': 'Didn’t catch that -- try again.',
+    'audio-capture': 'No microphone found.',
+    network: 'Voice input needs an internet connection.',
+    'start-failed': 'Voice input is unavailable right now.',
+  };
+
+  function showVoiceError(textarea, errorCode) {
+    const original = textarea.placeholder;
+    const messages = tr('dynamic.voiceErrors', VOICE_ERROR_MESSAGES);
+    const fallback = tr('dynamic.voiceErrorFallback', 'Voice input failed -- try again.');
+    textarea.placeholder = messages[errorCode] || fallback;
+    setTimeout(() => { textarea.placeholder = original; }, 3500);
+  }
+
   function attachVoiceInput(textarea, micBtn) {
     if (!micBtn) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -304,7 +1008,7 @@ const Engine = (() => {
         return;
       }
       recognition = new SR();
-      recognition.lang = 'en-US';
+      recognition.lang = navigator.language || 'en-US';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
       recognition.onstart = () => {
@@ -315,9 +1019,10 @@ const Engine = (() => {
         recognizing = false;
         micBtn.classList.remove('mic-active');
       };
-      recognition.onerror = () => {
+      recognition.onerror = (event) => {
         recognizing = false;
         micBtn.classList.remove('mic-active');
+        showVoiceError(textarea, event.error);
       };
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
@@ -327,15 +1032,16 @@ const Engine = (() => {
       try {
         recognition.start();
       } catch {
-        /* already running or blocked by permissions -- ignore */
+        showVoiceError(textarea, 'start-failed');
       }
     });
   }
 
   // ---- field builders ----
-  function buildSlider(cfg, initialValue, onChange) {
+  function buildSlider(cfg, initialValue, onChange, variantKey) {
     const wrap = document.createElement('div');
     wrap.className = 'slider-wrap';
+    if (variantKey) wrap.classList.add('slider-wrap--' + variantKey);
 
     const track = document.createElement('div');
     track.className = 'slider-track';
@@ -345,16 +1051,33 @@ const Engine = (() => {
     input.className = 'slider-input';
     input.min = cfg.min;
     input.max = cfg.max;
-    input.step = cfg.step;
+    // The DOM step stays fully continuous ('any') so the thumb tracks the
+    // pointer pixel-for-pixel while dragging -- a real step here (e.g. 0.1)
+    // makes the browser itself quantize the thumb's position as you drag,
+    // which is what reads as choppy/notchy instead of smooth. We snap the
+    // reported value to cfg.step ourselves, after the fact, for display and
+    // storage only.
+    input.step = 'any';
     input.value = initialValue;
+
+    const decimals = (String(cfg.step).split('.')[1] || '').length;
+    const snapToStep = (raw) => parseFloat((Math.round(raw / cfg.step) * cfg.step).toFixed(decimals));
 
     const display = document.createElement('div');
     display.className = 'slider-value-display';
-    display.innerHTML = `Current: <strong>${initialValue}</strong>`;
+    display.append('Current: ');
+    const displayValue = document.createElement('strong');
+    displayValue.textContent = initialValue;
+    display.appendChild(displayValue);
 
+    // Updating only the <strong>'s textContent (rather than re-parsing the
+    // whole row's innerHTML on every 'input' tick) keeps dragging smooth --
+    // 'input' fires continuously while the thumb moves, and innerHTML churn
+    // on that many events per drag is what made it feel choppy.
     input.addEventListener('input', () => {
-      display.innerHTML = `Current: <strong>${input.value}</strong>`;
-      onChange(parseFloat(input.value));
+      const snapped = snapToStep(parseFloat(input.value));
+      displayValue.textContent = snapped;
+      onChange(snapped);
     });
 
     track.appendChild(input);
@@ -363,7 +1086,42 @@ const Engine = (() => {
     return wrap;
   }
 
-  function buildCardStack(fields, entries, onChangeCb) {
+  // Splits a pasted transcript block into { name, grade } pairs -- one per
+  // line, matching a trailing/embedded grade token (A+, B-, C, ... F) and
+  // treating the rest of the line as the class name.
+  function parseTranscriptBlock(text) {
+    // Longest-first: regex alternation picks the first alternative that
+    // matches, not the longest, so "A" (bare) must not precede "A-"/"A+".
+    const gradeAlternatives = GRADE_OPTIONS.slice()
+      .sort((a, b) => b.length - a.length)
+      .map((g) => g.replace('+', '\\+'))
+      .join('|');
+    // Trailing boundary can't be \b: grades ending in +/- are followed by a
+    // non-word char (space/EOL), and \b never fires between two non-word
+    // positions, so it would silently fall back to matching the bare letter.
+    // No 'i' flag: grades are always written uppercase on a transcript, and
+    // matching case-insensitively would mistake a stray word like "a" or "b"
+    // in free text for a letter grade.
+    const gradePattern = new RegExp('\\b(' + gradeAlternatives + ')(?![a-zA-Z0-9])');
+    return text
+      .split(/\r?\n|;/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const match = line.match(gradePattern);
+        if (!match) return { name: line, grade: '' };
+        const grade = GRADE_OPTIONS.find((g) => g === match[1]) || '';
+        const name = (line.slice(0, match.index) + line.slice(match.index + match[0].length))
+          .replace(/[\s\-:,–—|]+$/, '')
+          .replace(/^[\s\-:,–—|]+/, '')
+          .trim();
+        return { name: name || line, grade };
+      })
+      .filter((entry) => entry.name);
+  }
+
+  function buildCardStack(fields, entries, onChangeCb, profile, opts) {
+    opts = opts || {};
     const wrap = document.createElement('div');
 
     const list = document.createElement('div');
@@ -409,13 +1167,28 @@ const Engine = (() => {
 
     const card = document.createElement('div');
     card.className = 'entry-card';
+    const fieldsRow = document.createElement('div');
+    fieldsRow.className = 'entry-fields-row';
     const draft = {};
     const fieldRefs = [];
+    // The add button always lands inline with whichever field is LAST in
+    // the array, instead of a separate footer row below -- keeps the card
+    // shorter. collegeChoiceToggleRow is that same idea specialized for
+    // college-choice's two-button row; lastFieldAddHost covers every other
+    // field type generically.
+    let collegeChoiceToggleRow = null;
+    let lastFieldAddHost = null;
+    const isLastField = (f) => fields[fields.length - 1] === f;
 
     fields.forEach((f) => {
+      // Each field's label + control live in their own column so the card
+      // can lay the fields out side by side instead of stacked.
+      const fieldWrap = document.createElement('div');
+      fieldWrap.className = 'entry-field';
+
       const label = document.createElement('label');
       label.textContent = f.label;
-      card.appendChild(label);
+      fieldWrap.appendChild(label);
 
       if (f.type === 'select') {
         const select = document.createElement('select');
@@ -432,7 +1205,15 @@ const Engine = (() => {
         select.addEventListener('change', () => {
           draft[f.key] = select.value;
         });
-        card.appendChild(select);
+        if (isLastField(f)) {
+          const row = document.createElement('div');
+          row.className = 'entry-field-inline-row';
+          row.appendChild(select);
+          fieldWrap.appendChild(row);
+          lastFieldAddHost = row;
+        } else {
+          fieldWrap.appendChild(select);
+        }
         fieldRefs.push(select);
       } else if (f.type === 'autocomplete') {
         const acWrap = document.createElement('div');
@@ -444,18 +1225,23 @@ const Engine = (() => {
         const listEl = document.createElement('div');
         listEl.className = 'autocomplete-list';
 
+        const majorCat = profile ? guessCategoryFromMajorText(profile.major) : null;
+        const orderedSuggestions = majorCat
+          ? [...f.suggestions].sort((a, b) => (b.cat === majorCat) - (a.cat === majorCat))
+          : f.suggestions;
+
         function renderSuggestions() {
           const q = (input.value || '').toLowerCase();
-          const matches = f.suggestions.filter((s) => s.toLowerCase().includes(q)).slice(0, 7);
+          const matches = orderedSuggestions.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 8);
           listEl.innerHTML = '';
           matches.forEach((m) => {
             const item = document.createElement('div');
             item.className = 'autocomplete-item';
-            item.textContent = m;
+            item.textContent = m.name;
             item.addEventListener('mousedown', (e) => {
               e.preventDefault();
-              input.value = m;
-              draft[f.key] = m;
+              input.value = m.name;
+              draft[f.key] = m.name;
               listEl.classList.remove('open');
             });
             listEl.appendChild(item);
@@ -469,10 +1255,106 @@ const Engine = (() => {
           renderSuggestions();
         });
         input.addEventListener('blur', () => setTimeout(() => listEl.classList.remove('open'), 120));
+
+        // Pasting a whole transcript (multiple lines, or one long block) into
+        // the class-name field adds one entry per class instead of dumping
+        // it all into a single field -- each line's grade is matched and
+        // carried over so nothing has to be re-typed by hand.
+        if (f.key === 'name' && fields.some((ff) => ff.key === 'grade')) {
+          input.addEventListener('paste', (e) => {
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            if (!text) return;
+            const looksLikeBulkPaste = /\n/.test(text) || text.trim().length > 60;
+            if (!looksLikeBulkPaste) return;
+            e.preventDefault();
+            const parsed = parseTranscriptBlock(text);
+            if (!parsed.length) return;
+            parsed.forEach((p) => {
+              const entry = {};
+              fields.forEach((ff) => { entry[ff.key] = ''; });
+              entry.name = p.name;
+              if (p.grade) entry.grade = p.grade;
+              entries.push(entry);
+            });
+            renderList();
+            updatePeek();
+            onChangeCb();
+            input.value = '';
+            draft[f.key] = '';
+            listEl.classList.remove('open');
+          });
+        }
+
         acWrap.appendChild(input);
         acWrap.appendChild(listEl);
-        card.appendChild(acWrap);
+        if (isLastField(f)) {
+          const row = document.createElement('div');
+          row.className = 'entry-field-inline-row';
+          row.appendChild(acWrap);
+          fieldWrap.appendChild(row);
+          lastFieldAddHost = row;
+        } else {
+          fieldWrap.appendChild(acWrap);
+        }
         fieldRefs.push(input);
+      } else if (f.type === 'college-choice') {
+        const wrap = document.createElement('div');
+        wrap.className = 'college-choice-wrap';
+        const toggleRow = document.createElement('div');
+        toggleRow.className = 'college-choice-toggle';
+        collegeChoiceToggleRow = toggleRow;
+        const currentBtn = document.createElement('button');
+        currentBtn.type = 'button';
+        currentBtn.className = 'college-choice-btn';
+        currentBtn.textContent = f.currentBtn || 'Current college';
+        const previousBtn = document.createElement('button');
+        previousBtn.type = 'button';
+        previousBtn.className = 'college-choice-btn';
+        previousBtn.textContent = f.previousBtn || 'Previous college';
+
+        const valueInput = document.createElement('input');
+        valueInput.type = 'text';
+        valueInput.placeholder = f.manualPlaceholder || 'Please write your college here';
+        valueInput.style.display = 'none';
+
+        const currentCollegeName =
+          profile && profile.community_college && profile.community_college.name
+            ? profile.community_college.name
+            : '';
+
+        currentBtn.addEventListener('click', () => {
+          toggleRow.querySelectorAll('.college-choice-btn').forEach((b) => b.classList.remove('selected'));
+          currentBtn.classList.add('selected');
+          valueInput.style.display = 'none';
+          draft[f.key] = currentCollegeName || '(current college)';
+        });
+        previousBtn.addEventListener('click', () => {
+          toggleRow.querySelectorAll('.college-choice-btn').forEach((b) => b.classList.remove('selected'));
+          previousBtn.classList.add('selected');
+          valueInput.style.display = 'block';
+          valueInput.value = '';
+          draft[f.key] = '';
+          valueInput.focus();
+        });
+        valueInput.addEventListener('input', () => {
+          draft[f.key] = valueInput.value;
+        });
+
+        toggleRow.appendChild(currentBtn);
+        toggleRow.appendChild(previousBtn);
+        wrap.appendChild(toggleRow);
+        wrap.appendChild(valueInput);
+        fieldWrap.appendChild(wrap);
+        fieldRefs.push({
+          get value() {
+            return draft[f.key] || '';
+          },
+          set value(v) {
+            draft[f.key] = v;
+            valueInput.value = '';
+            toggleRow.querySelectorAll('.college-choice-btn').forEach((b) => b.classList.remove('selected'));
+          },
+        });
       } else {
         const input = document.createElement('input');
         input.type = 'text';
@@ -480,13 +1362,22 @@ const Engine = (() => {
         input.addEventListener('input', () => {
           draft[f.key] = input.value;
         });
-        card.appendChild(input);
+        if (isLastField(f)) {
+          const row = document.createElement('div');
+          row.className = 'entry-field-inline-row';
+          row.appendChild(input);
+          fieldWrap.appendChild(row);
+          lastFieldAddHost = row;
+        } else {
+          fieldWrap.appendChild(input);
+        }
         fieldRefs.push(input);
       }
-    });
 
-    const cardFooter = document.createElement('div');
-    cardFooter.className = 'entry-card-footer';
+      fieldsRow.appendChild(fieldWrap);
+    });
+    card.appendChild(fieldsRow);
+
     const addBtn = document.createElement('button');
     addBtn.className = 'add-entry-btn';
     addBtn.type = 'button';
@@ -508,8 +1399,18 @@ const Engine = (() => {
         onChangeCb();
       }
     });
-    cardFooter.appendChild(addBtn);
-    card.appendChild(cardFooter);
+
+    const lastField = fields[fields.length - 1];
+    if (lastField && lastField.type === 'college-choice' && collegeChoiceToggleRow) {
+      collegeChoiceToggleRow.appendChild(addBtn);
+    } else if (lastFieldAddHost) {
+      lastFieldAddHost.appendChild(addBtn);
+    } else {
+      const cardFooter = document.createElement('div');
+      cardFooter.className = 'entry-card-footer';
+      cardFooter.appendChild(addBtn);
+      card.appendChild(cardFooter);
+    }
 
     stackWrap.appendChild(peek2);
     stackWrap.appendChild(peek1);
@@ -518,7 +1419,131 @@ const Engine = (() => {
 
     wrap.appendChild(list);
     wrap.appendChild(stackWrap);
-    return wrap;
+
+    let uploadBox = null;
+    if (opts.enableTranscriptUpload && opts.onTranscriptUpload) {
+      uploadBox = buildTranscriptUploadBox(fields, entries, { renderList, updatePeek, onChangeCb }, opts.onTranscriptUpload);
+    }
+
+    return { wrap, uploadBox };
+  }
+
+  const TRANSCRIPT_MAX_BYTES = 8 * 1024 * 1024; // 8MB raw file, matches the server-side cap
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result || '';
+        const commaIdx = result.indexOf(',');
+        resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error || new Error('Could not read file'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // The "Upload your transcript" box that sits under Obee on cc_courses:
+  // reads the file client-side, sends it to the backend for Claude to read,
+  // then feeds whatever courses it finds back into this same card-stack's
+  // entries array -- same renderList/updatePeek/onChangeCb the "+" button uses.
+  function buildTranscriptUploadBox(fields, entries, { renderList, updatePeek, onChangeCb }, onTranscriptUpload) {
+    const box = document.createElement('div');
+    box.className = 'transcript-upload-box';
+
+    const caption = document.createElement('p');
+    caption.className = 'transcript-upload-caption';
+    caption.textContent = tr('ui.transcriptUploadCaption', 'Upload your transcript here');
+    box.appendChild(caption);
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/webp,application/pdf';
+    input.className = 'transcript-upload-input';
+    input.setAttribute('aria-label', 'Upload transcript file');
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'transcript-upload-btn';
+    btn.textContent = tr('ui.transcriptUploadBtn', 'Upload');
+    btn.addEventListener('click', () => input.click());
+
+    const status = document.createElement('p');
+    status.className = 'transcript-upload-status';
+
+    function setStatus(text, kind) {
+      status.textContent = text || '';
+      status.className = 'transcript-upload-status' + (kind ? ' transcript-upload-status--' + kind : '');
+    }
+
+    function normalizeGrade(raw) {
+      if (!raw) return '';
+      const match = (typeof GRADE_OPTIONS !== 'undefined' ? GRADE_OPTIONS : []).find(
+        (g) => g.toLowerCase() === String(raw).trim().toLowerCase()
+      );
+      return match || '';
+    }
+
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+
+      if (file.size > TRANSCRIPT_MAX_BYTES) {
+        setStatus(tr('ui.transcriptUploadTooBig', "That file is too large -- please upload something under 8MB."), 'error');
+        input.value = '';
+        return;
+      }
+
+      btn.disabled = true;
+      setStatus(tr('ui.transcriptUploadAnalyzing', 'Reading your transcript…'), 'loading');
+
+      try {
+        const base64 = await fileToBase64(file);
+        const result = await onTranscriptUpload(base64, file.type || 'application/octet-stream');
+
+        if (!result || result.error || result.readable === false) {
+          setStatus(
+            tr('ui.transcriptUploadUnreadable', "Obee couldn't read that file clearly -- try a clearer photo or add courses manually."),
+            'error'
+          );
+          return;
+        }
+
+        const courses = Array.isArray(result.courses) ? result.courses : [];
+        if (!courses.length) {
+          setStatus(
+            tr('ui.transcriptUploadEmpty', "Obee couldn't find any courses in that file -- try a clearer photo or add them manually."),
+            'error'
+          );
+          return;
+        }
+
+        courses.forEach((c) => {
+          const entry = {};
+          fields.forEach((f) => { entry[f.key] = ''; });
+          entry.name = (c.name || '').toString().trim();
+          if ('grade' in entry) entry.grade = normalizeGrade(c.grade);
+          if ('units' in entry && c.units) entry.units = String(c.units).trim();
+          if (entry.name) entries.push(entry);
+        });
+
+        renderList();
+        updatePeek();
+        onChangeCb();
+        setStatus(tr('ui.transcriptUploadSuccess', 'Added {n} course(s) from your transcript.').replace('{n}', courses.length), 'success');
+      } catch (err) {
+        console.error('Transcript upload failed', err);
+        setStatus(tr('ui.transcriptUploadError', 'Something went wrong reading that file. Please try again.'), 'error');
+      } finally {
+        btn.disabled = false;
+        input.value = '';
+      }
+    });
+
+    box.appendChild(btn);
+    box.appendChild(input);
+    box.appendChild(status);
+    return box;
   }
 
   function buildDropdown(step, structured, onChangeCb) {
@@ -552,6 +1577,21 @@ const Engine = (() => {
       });
       row.appendChild(select);
       wrap.appendChild(row);
+
+      if (step.includeSchoolField) {
+        const schoolRow = document.createElement('div');
+        schoolRow.className = 'dropdown-row dropdown-row--single';
+        const schoolInput = document.createElement('input');
+        schoolInput.type = 'text';
+        schoolInput.placeholder = step.schoolFieldLabel || 'Your school name';
+        schoolInput.value = structured.school || '';
+        schoolInput.addEventListener('input', () => {
+          structured.school = schoolInput.value;
+          onChangeCb();
+        });
+        schoolRow.appendChild(schoolInput);
+        wrap.appendChild(schoolRow);
+      }
       return wrap;
     }
 
@@ -592,7 +1632,7 @@ const Engine = (() => {
         const manualLink = document.createElement('button');
         manualLink.type = 'button';
         manualLink.className = 'manual-entry-link';
-        manualLink.textContent = "Don't see your college? Enter manually";
+        manualLink.innerHTML = 'Don’t see your college? <span class="manual-entry-underline">Enter manually</span>';
         manualLink.addEventListener('click', () => {
           structured.manualEntry = true;
           structured.name = '';
@@ -618,7 +1658,7 @@ const Engine = (() => {
           const backLink = document.createElement('button');
           backLink.type = 'button';
           backLink.className = 'manual-entry-link';
-          backLink.textContent = '\u2190 Back to the list';
+          backLink.textContent = 'Back to the list';
           backLink.addEventListener('click', () => {
             structured.manualEntry = false;
             structured.name = '';
@@ -679,6 +1719,18 @@ const Engine = (() => {
     const node = mountTemplate('tpl-results');
     const body = node.querySelector('.results-body');
     const messagesEl = node.querySelector('.results-chat-messages');
+    let currentData = data;
+
+    // Chrome only -- the recommendation content itself comes from the API,
+    // which always answers in English regardless of the UI language.
+    const resultsTitleEl = node.querySelector('.results-header h2');
+    if (resultsTitleEl) resultsTitleEl.textContent = tr('ui.resultsHeader', resultsTitleEl.textContent);
+    setText(node, '.js-copy-link', tr('ui.copyLink', null));
+    setText(node, '.js-download-pdf', tr('ui.downloadPdf', null));
+    const disclaimerEl = node.querySelector('.results-disclaimer');
+    if (disclaimerEl) disclaimerEl.textContent = tr('ui.resultsDisclaimer', disclaimerEl.textContent);
+    const followupInput = node.querySelector('.results-chat-input');
+    if (followupInput) followupInput.placeholder = tr('ui.followupPlaceholder', followupInput.placeholder);
 
     function paintRecommendation(d) {
       body.innerHTML = '';
@@ -722,6 +1774,14 @@ const Engine = (() => {
             note.className = 'school-note';
             note.textContent = s.note;
             card.appendChild(note);
+          }
+          if (s.basis) {
+            const source = document.createElement('div');
+            const isVerified = s.basis === 'verified';
+            source.className = 'school-source ' + (isVerified ? 'school-source--verified' : 'school-source--general');
+            const label = isVerified ? '✓ Verified' : 'ⓘ General estimate';
+            source.textContent = s.source ? `${label} — ${s.source}` : label;
+            card.appendChild(source);
           }
           grid.appendChild(card);
         });
@@ -802,6 +1862,7 @@ const Engine = (() => {
       input.style.height = 'auto';
       onSendFollowup(text, (replyData) => {
         if (replyData.mode === 'recommendation') {
+          currentData = replyData;
           paintRecommendation(replyData);
         }
         if (replyData.message) appendChatMsg(messagesEl, 'ai', replyData.message);
@@ -809,6 +1870,26 @@ const Engine = (() => {
     }
 
     sendBtn.addEventListener('click', send);
+
+    const copyLinkBtn = node.querySelector('.js-copy-link');
+    const downloadPdfBtn = node.querySelector('.js-download-pdf');
+
+    copyLinkBtn.addEventListener('click', async () => {
+      const encoded = encodeShareData(currentData);
+      if (!encoded) return;
+      const url = `${location.origin}${location.pathname}?r=${encoded}`;
+      const originalLabel = copyLinkBtn.textContent;
+      try {
+        await navigator.clipboard.writeText(url);
+        copyLinkBtn.textContent = '✅ Copied!';
+      } catch {
+        window.prompt('Copy this link:', url);
+      }
+      setTimeout(() => { copyLinkBtn.textContent = originalLabel; }, 1800);
+    });
+
+    downloadPdfBtn.addEventListener('click', () => window.print());
+
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -838,5 +1919,9 @@ const Engine = (() => {
     renderQuestion,
     renderResults,
     renderLimitReached,
+    renderInfoModal,
+    renderEmailGateModal,
+    encodeShareData,
+    decodeShareData,
   };
 })();

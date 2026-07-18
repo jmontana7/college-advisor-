@@ -6,5 +6,8 @@
   "description": "Obee — AI-powered college advisor for high school and community college students.",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "resend": "^6.17.2"
   }
 }
