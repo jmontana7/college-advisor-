@@ -14,7 +14,13 @@
 
 const CONFIG = {
   MODEL: 'claude-sonnet-4-6',
-  MAX_TOKENS: 1600,
+  // Intake replies are "1 sentence, max 2" -- a small cap is plenty and keeps
+  // those calls fast. Results replies carry a full structured JSON list (up
+  // to 8 schools, each with several fields, plus summary/top_pick/gaps/
+  // next_steps) -- 1600 was cutting that off mid-response on richer profiles,
+  // which produced invalid JSON and the "parse_warning" raw-text fallback.
+  MAX_TOKENS_INTAKE: 500,
+  MAX_TOKENS_RESULTS: 3000,
   MAX_MESSAGES_PER_CONVERSATION: 20,
   MAX_INPUT_CHARS: 4000,
   RATE_LIMIT_REQUESTS: 30,
@@ -369,7 +375,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: CONFIG.MODEL,
-        max_tokens: CONFIG.MAX_TOKENS,
+        max_tokens: isResultsPhase ? CONFIG.MAX_TOKENS_RESULTS : CONFIG.MAX_TOKENS_INTAKE,
         system: systemPrompt,
         messages: outgoingMessages,
       }),
