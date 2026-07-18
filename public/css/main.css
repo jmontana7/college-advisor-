@@ -1889,6 +1889,26 @@ textarea, select, input { font-family: inherit; }
 .chat-msg.user { align-self: flex-end; background: #000; color: #fff; }
 .chat-msg.ai { align-self: flex-start; background: rgba(255,255,255,0.85); }
 
+/* Follow-up "thinking" indicator -- shown while waiting on a chat reply so
+   it never looks stuck; always removed via the same onReply callback that
+   resolves a normal message, so it can't outlive the request. */
+.chat-typing { display: flex; align-items: center; gap: 8px; color: var(--ink-soft); }
+.chat-typing-dots { display: inline-flex; align-items: center; gap: 4px; }
+.chat-typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+  animation: chatTypingWave 1.2s ease-in-out infinite;
+}
+.chat-typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.chat-typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes chatTypingWave {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
 .results-chat-input {
   flex: 1;
   border: none;

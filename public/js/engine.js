@@ -1860,7 +1860,14 @@ const Engine = (() => {
       appendChatMsg(messagesEl, 'user', text);
       input.value = '';
       input.style.height = 'auto';
+      input.disabled = true;
+      sendBtn.disabled = true;
+      const typing = appendTypingIndicator(messagesEl);
       onSendFollowup(text, (replyData) => {
+        typing.remove();
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
         if (replyData.mode === 'recommendation') {
           currentData = replyData;
           paintRecommendation(replyData);
@@ -1910,6 +1917,23 @@ const Engine = (() => {
     div.textContent = text;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
+  }
+
+  function appendTypingIndicator(container) {
+    const div = document.createElement('div');
+    div.className = 'chat-msg ai chat-typing';
+    const label = document.createElement('span');
+    label.textContent = tr('ui.thinkingLabel', 'Thinking...').replace(/\.\.\.$/, '');
+    const dots = document.createElement('span');
+    dots.className = 'chat-typing-dots';
+    dots.appendChild(document.createElement('span'));
+    dots.appendChild(document.createElement('span'));
+    dots.appendChild(document.createElement('span'));
+    div.appendChild(label);
+    div.appendChild(dots);
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
   }
 
   return {

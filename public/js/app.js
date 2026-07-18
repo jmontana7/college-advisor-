@@ -351,6 +351,7 @@
             reply.message ||
               tr('dynamic.keepFriendlyText', 'I’m only here to help with your college search — let’s keep things respectful and on-topic so I can help you.')
           );
+          onReply({ mode: 'blocked', message: null });
           return;
         }
         if (reply.mode === 'recommendation') {
