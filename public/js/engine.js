@@ -924,12 +924,17 @@ const Engine = (() => {
     return overlay;
   }
 
-  // ---- EMAIL GATE MODAL -- shown right as results finish loading; the
-  // student's email unlocks the list (and gets a copy sent to them). Unlike
-  // renderInfoModal this one has no close button, overlay-click, or Escape
-  // dismissal -- it's a required step, not an aside. onSubmit(email) must
-  // return a promise; the modal closes once it resolves. ----
-  function renderEmailGateModal(onSubmit) {
+  // ---- EMAIL GATE MODAL -- shown every time a results screen finishes
+  // loading (whether Claude has a real list or still needs a clarifying
+  // answer) and again whenever a follow-up produces a brand new list --
+  // each is worth capturing as a lead, so this never remembers a prior
+  // submission to skip itself, it only accepts an optional prefill so a
+  // student who already typed their email once this session doesn't have
+  // to retype it. Unlike renderInfoModal this one has no close button,
+  // overlay-click, or Escape dismissal -- it's a required step, not an
+  // aside. onSubmit(email) must return a promise; the modal closes once
+  // it resolves. ----
+  function renderEmailGateModal(onSubmit, prefillEmail) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
 
@@ -963,6 +968,7 @@ const Engine = (() => {
     input.className = 'modal-email-input';
     input.placeholder = tr('dynamic.emailGatePlaceholder', 'you@email.com');
     input.autocomplete = 'email';
+    if (prefillEmail) input.value = prefillEmail;
     inputWrap.appendChild(input);
 
     const error = document.createElement('p');

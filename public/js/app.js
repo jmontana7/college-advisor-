@@ -262,11 +262,15 @@
 
   const EMAIL_UNLOCK_KEY = 'obee_unlocked_email';
 
-  function hasUnlockedEmail() {
+  // Only used to prefill the gate so a student who already typed their
+  // email once this session doesn't have to retype it -- it never skips
+  // the gate. The gate is asked for every fresh results screen and every
+  // new recommendation on purpose, so every one of those is a captured lead.
+  function getRememberedEmail() {
     try {
-      return !!localStorage.getItem(EMAIL_UNLOCK_KEY);
+      return localStorage.getItem(EMAIL_UNLOCK_KEY) || '';
     } catch {
-      return false;
+      return '';
     }
   }
 
@@ -310,16 +314,15 @@
       state.resultsData = data;
       saveState();
 
-      if (data.mode === 'recommendation' && !hasUnlockedEmail()) {
-        Engine.renderEmailGateModal(async (email) => {
-          saveUnlockedEmail(email);
-          await sendResultsEmail(email, data);
-          mountResults(data);
-        });
-        return;
-      }
-
-      mountResults(data);
+      // Gate every fresh results screen, whether Claude already has enough
+      // for a real list or still needs a clarifying answer first -- a
+      // clarifying question is still worth a captured lead, not just the
+      // final list.
+      Engine.renderEmailGateModal(async (email) => {
+        saveUnlockedEmail(email);
+        await sendResultsEmail(email, data);
+        mountResults(data);
+      }, getRememberedEmail());
     } catch (err) {
       console.error(err);
       state.resultsData = {
@@ -357,6 +360,14 @@
         if (reply.mode === 'recommendation') {
           state.resultsData = reply;
           saveState();
+          // A brand new list is exactly the moment worth gating again --
+          // the student went from "not enough info" to an actual result.
+          Engine.renderEmailGateModal(async (email) => {
+            saveUnlockedEmail(email);
+            await sendResultsEmail(email, reply);
+            onReply(reply);
+          }, getRememberedEmail());
+          return;
         }
         onReply(reply);
       } catch {
