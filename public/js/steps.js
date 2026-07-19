@@ -144,7 +144,7 @@ const COMMUNITY_COLLEGES_BY_STATE = {
     'Allan Hancock College', 'American River College', 'Antelope Valley College', 'Bakersfield College',
     'Barstow Community College', 'Berkeley City College', 'Butte College', 'Cabrillo College',
     'Calbright College', 'Canada College', 'Cerritos College', 'Cerro Coso Community College',
-    'Chabot College', 'Chaffey College', 'College of Alameda', 'College of Marin',
+    'Chabot College', 'Chaffey College', 'City College of San Francisco', 'College of Alameda', 'College of Marin',
     'College of San Mateo', 'College of the Canyons', 'College of the Desert', 'College of the Redwoods',
     'College of the Sequoias', 'College of the Siskiyous', 'Columbia College', 'Compton College',
     'Contra Costa College', 'Copper Mountain College', 'Cosumnes River College', 'Crafton Hills College',
