@@ -1887,7 +1887,7 @@ textarea, select, input { font-family: inherit; }
 /* Keep the native scroll arrows/thumb (unlike the freeform textarea's
    scrollbar, which hides its buttons entirely) but drop the solid
    track/button backdrop so it doesn't read as a boxed-in square. */
-.results-chat-messages::-webkit-scrollbar { width: 14px; }
+.results-chat-messages::-webkit-scrollbar { width: 13px; }
 .results-chat-messages::-webkit-scrollbar-track { background: transparent; }
 .results-chat-messages::-webkit-scrollbar-thumb { background: var(--obelisk-purple); border-radius: 8px; }
 .results-chat-messages::-webkit-scrollbar-button { background: transparent; }

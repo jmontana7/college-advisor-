@@ -317,10 +317,16 @@
       // Gate every fresh results screen, whether Claude already has enough
       // for a real list or still needs a clarifying answer first -- a
       // clarifying question is still worth a captured lead, not just the
-      // final list.
+      // final list. The email itself only actually gets sent once there's
+      // a real list to put in it though (mode:"recommendation") -- sending
+      // now would just mail out an empty list. If this is still a
+      // clarifying question, the email is remembered (for prefill) and
+      // gets sent for real once the follow-up gate below fires.
       Engine.renderEmailGateModal(async (email) => {
         saveUnlockedEmail(email);
-        await sendResultsEmail(email, data);
+        if (data.mode === 'recommendation') {
+          await sendResultsEmail(email, data);
+        }
         mountResults(data);
       }, getRememberedEmail());
     } catch (err) {
