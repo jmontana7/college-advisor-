@@ -1887,7 +1887,7 @@ textarea, select, input { font-family: inherit; }
 /* Keep the native scroll arrows/thumb (unlike the freeform textarea's
    scrollbar, which hides its buttons entirely) but drop the solid
    track/button backdrop so it doesn't read as a boxed-in square. */
-.results-chat-messages::-webkit-scrollbar { width: 13px; }
+.results-chat-messages::-webkit-scrollbar { width: 12px; }
 .results-chat-messages::-webkit-scrollbar-track { background: transparent; }
 .results-chat-messages::-webkit-scrollbar-thumb { background: var(--obelisk-purple); border-radius: 8px; }
 .results-chat-messages::-webkit-scrollbar-button { background: transparent; }
@@ -1949,7 +1949,7 @@ textarea, select, input { font-family: inherit; }
 }
 .results-chat-input::placeholder { color: var(--ink-soft); opacity: 0.85; }
 
-.send-btn { background: var(--gloss-accent); box-shadow: var(--gloss-shadow-sm); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; flex-shrink: 0; transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1); }
+.send-btn { background: var(--obelisk-purple); box-shadow: var(--gloss-shadow-sm); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; flex-shrink: 0; transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1); }
 .send-btn:hover { transform: scale(1.08); }
 
 /* ============================================================
