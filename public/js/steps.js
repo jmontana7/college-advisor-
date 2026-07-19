@@ -90,17 +90,27 @@ const CC_COURSE_SUGGESTIONS = [
   { name: 'Nursing Fundamentals', cat: 'health' }, { name: 'Nutrition', cat: 'health' }, { name: 'Kinesiology', cat: 'health' },
 ];
 
+// Matched against whatever the student typed for their intended major/career
+// (a free-text field, so this covers both major names like "biology" and
+// career phrasings like "I want to be a doctor") to bubble the most relevant
+// courses to the top of the Class Name autocomplete. Deliberately broad --
+// better to loosely match a career phrasing than to miss it entirely.
 const MAJOR_KEYWORD_MAP = {
-  arts: ['art', 'design', 'music', 'theater', 'theatre', 'film', 'dance', 'graphic', 'photograph', 'fine art'],
-  engineering: ['engineer', 'mechanical', 'civil eng', 'electrical eng', 'aerospace', 'robotics'],
-  cs: ['computer science', 'software', 'programming', 'computer engineering', 'data science', 'information technology', 'coding', 'cybersecurity'],
-  math: ['math', 'statistics', 'actuarial'],
-  science: ['biology', 'chemistry', 'physics', 'pre-med', 'premed', 'biochem', 'environmental science', 'genetics'],
-  health: ['nursing', 'health', 'kinesiology', 'public health', 'nutrition', 'physical therapy'],
-  business: ['business', 'economics', 'finance', 'marketing', 'accounting', 'entrepreneur', 'management'],
-  humanities: ['history', 'philosophy', 'english', 'literature', 'writing', 'journalism'],
-  social: ['psychology', 'sociology', 'political', 'anthropology', 'social work', 'communication'],
-  language: ['spanish', 'french', 'linguistics', 'language', 'translation'],
+  arts: ['art', 'design', 'music', 'theater', 'theatre', 'film', 'dance', 'graphic', 'photograph', 'fine art', 'animator', 'animation', 'illustrator'],
+  engineering: ['engineer', 'mechanical', 'civil eng', 'electrical eng', 'aerospace', 'robotics', 'architect'],
+  cs: ['computer science', 'software', 'programming', 'computer engineering', 'data science', 'information technology', 'coding', 'cybersecurity', 'developer', 'programmer', 'web dev', 'app dev', 'machine learning', 'artificial intelligence'],
+  math: ['math', 'statistics', 'actuarial', 'statistician'],
+  science: [
+    'biology', 'chemistry', 'physics', 'pre-med', 'premed', 'biochem', 'environmental science', 'genetics',
+    'doctor', 'physician', 'medicine', 'medical school', 'med school', 'surgeon', 'surgery',
+    'dentist', 'dental', 'pharmacist', 'pharmacy', 'veterinarian', 'vet school', 'radiologist', 'anesthesiologist',
+    'chiropractor', 'optometrist', 'physicist', 'chemist', 'biologist',
+  ],
+  health: ['nursing', 'nurse', 'health', 'kinesiology', 'public health', 'nutrition', 'nutritionist', 'dietitian', 'physical therapy', 'physical therapist', 'occupational therapy', 'paramedic', 'ems'],
+  business: ['business', 'economics', 'finance', 'marketing', 'accounting', 'accountant', 'entrepreneur', 'management', 'banker', 'consultant', 'real estate', 'human resources'],
+  humanities: ['history', 'philosophy', 'english', 'literature', 'writing', 'journalism', 'writer', 'author', 'journalist', 'teacher', 'teaching', 'education'],
+  social: ['psychology', 'psychologist', 'sociology', 'political', 'anthropology', 'social work', 'social worker', 'communication', 'counselor', 'therapist', 'law', 'lawyer', 'attorney', 'legal'],
+  language: ['spanish', 'french', 'linguistics', 'language', 'translation', 'translator', 'interpreter'],
 };
 
 function guessCategoryFromMajorText(text) {
