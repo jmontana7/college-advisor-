@@ -1575,7 +1575,7 @@ textarea, select, input { font-family: inherit; }
   background-size: 18px, auto, auto;
   padding-right: 46px;
 }
-.college-zone { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.college-zone, .district-zone { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .manual-entry-link {
   background: none;
   border: none;

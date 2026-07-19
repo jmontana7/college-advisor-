@@ -1633,15 +1633,95 @@ const Engine = (() => {
     }
 
     if (step.stateOnly) {
+      const districtZone = document.createElement('div');
+      districtZone.className = 'district-zone';
+
+      // Optional, unlike the college cascade below -- most states have no
+      // district in a top-129-by-enrollment list, so this can't gate
+      // Continue the way state/school do. Re-rendered on every state change.
+      function renderDistrictZone() {
+        districtZone.innerHTML = '';
+        if (!step.includeDistrictField || !structured.state) return;
+        const districts = HIGH_SCHOOL_DISTRICTS_BY_STATE[structured.state];
+
+        if (districts && districts.length && !structured.districtManualEntry) {
+          const row = document.createElement('div');
+          row.className = 'dropdown-row dropdown-row--single';
+          const select = document.createElement('select');
+          select.className = 'district-select';
+          const blank = document.createElement('option');
+          blank.value = '';
+          blank.textContent = step.districtFieldLabel || 'Select your district';
+          select.appendChild(blank);
+          districts.forEach((d) => {
+            const o = document.createElement('option');
+            o.value = d;
+            o.textContent = d;
+            if (structured.district === d) o.selected = true;
+            select.appendChild(o);
+          });
+          select.addEventListener('change', () => {
+            structured.district = select.value;
+            onChangeCb();
+          });
+          row.appendChild(select);
+          districtZone.appendChild(row);
+
+          const manualLink = document.createElement('button');
+          manualLink.type = 'button';
+          manualLink.className = 'manual-entry-link';
+          manualLink.innerHTML = 'Don’t see your district? <span class="manual-entry-underline">Enter manually</span>';
+          manualLink.addEventListener('click', () => {
+            structured.districtManualEntry = true;
+            structured.district = '';
+            renderDistrictZone();
+            onChangeCb();
+          });
+          districtZone.appendChild(manualLink);
+        } else {
+          const row = document.createElement('div');
+          row.className = 'dropdown-row dropdown-row--single';
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.placeholder = 'Your school district (optional)';
+          input.value = structured.district || '';
+          input.addEventListener('input', () => {
+            structured.district = input.value;
+            onChangeCb();
+          });
+          row.appendChild(input);
+          districtZone.appendChild(row);
+
+          if (districts && districts.length) {
+            const backLink = document.createElement('button');
+            backLink.type = 'button';
+            backLink.className = 'manual-entry-link';
+            backLink.textContent = 'Back to the list';
+            backLink.addEventListener('click', () => {
+              structured.districtManualEntry = false;
+              structured.district = '';
+              renderDistrictZone();
+              onChangeCb();
+            });
+            districtZone.appendChild(backLink);
+          }
+        }
+      }
+
       const row = document.createElement('div');
       row.className = 'dropdown-row dropdown-row--single';
       const select = buildStateSelect((val) => {
         structured.state = val;
         structured.name = '';
+        structured.district = '';
+        structured.districtManualEntry = false;
+        renderDistrictZone();
         onChangeCb();
       });
       row.appendChild(select);
       wrap.appendChild(row);
+      wrap.appendChild(districtZone);
+      renderDistrictZone();
 
       if (step.includeSchoolField) {
         const schoolRow = document.createElement('div');

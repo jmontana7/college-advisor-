@@ -481,6 +481,71 @@ const COMMUNITY_COLLEGES_BY_STATE = {
   ],
 };
 
+// --------------------------------------------------------------------------
+// The 120 largest US school districts by enrollment (NCES/Dept. of
+// Education, fall-2019 figures -- the most recent complete verified
+// ranking as of compilation) plus 9 more historically-large districts,
+// grouped by state. Ranks may have shifted slightly since 2019, and most
+// states have zero entries here simply because none of their districts
+// are large enough to make a top-120-nationally list -- "Enter manually"
+// is always offered. The one "District of Columbia" entry has no home in
+// this object since DC isn't one of the US_STATES dropdown options.
+// --------------------------------------------------------------------------
+const HIGH_SCHOOL_DISTRICTS_BY_STATE = {
+  Alabama: ['Mobile County'],
+  Alaska: ['Anchorage'],
+  Arizona: ['Chandler Unified', 'Mesa Unified', 'Tucson Unified'],
+  California: [
+    'Capistrano Unified', 'Clovis Unified', 'Corona-Norco Unified', 'Elk Grove Unified',
+    'Fresno Unified', 'Garden Grove Unified', 'Long Beach Unified', 'Los Angeles Unified',
+    'Oakland Unified', 'Riverside Unified', 'Sacramento City Unified', 'San Bernardino City Unified',
+    'San Diego Unified', 'San Francisco Unified', 'San Juan Unified', 'Santa Ana Unified',
+  ],
+  Colorado: ['Cherry Creek No. 5', 'Denver', 'Douglas County No. RE1', 'Jefferson County No. R1'],
+  Florida: [
+    'Brevard County', 'Broward County', 'Collier County', 'Duval County',
+    'Hillsborough County', 'Lake', 'Lee County', 'Manatee County',
+    'Marion County', 'Miami-Dade County', 'Orange County', 'Osceola County',
+    'Palm Beach', 'Pasco County', 'Pinellas County', 'Polk County',
+    'Sarasota', 'Seminole County', 'St. Johns County School District', 'Volusia County',
+  ],
+  Georgia: ['Atlanta', 'Clayton County', 'Cobb County', 'DeKalb County', 'Forsyth County', 'Fulton County', 'Gwinnett County'],
+  Hawaii: ['Hawaii Department of Education'],
+  Illinois: ['City of Chicago (SD 299)'],
+  Kansas: ['Wichita'],
+  Kentucky: ['Fayette County Public Schools', 'Jefferson County'],
+  Louisiana: ['Jefferson Parish'],
+  Maryland: [
+    'Anne Arundel County', 'Baltimore City', 'Baltimore County', 'Frederick County Public Schools',
+    'Howard County', 'Montgomery County', 'Prince George’s County',
+  ],
+  Massachusetts: ['Boston'],
+  Michigan: ['Detroit'],
+  Nebraska: ['Omaha'],
+  Nevada: ['Clark County', 'Washoe County'],
+  'New Mexico': ['Albuquerque'],
+  'New York': ['New York City'],
+  'North Carolina': ['Charlotte-Mecklenburg', 'Cumberland County', 'Guilford County', 'Wake County', 'Winston-Salem/Forsyth County'],
+  Ohio: ['Columbus City'],
+  Oregon: ['Portland SD1J'],
+  Pennsylvania: ['Philadelphia City'],
+  'South Carolina': ['Charleston 01', 'Greenville County', 'Horry County'],
+  Tennessee: ['Davidson County', 'Hamilton County', 'Knox County', 'Rutherford County', 'Shelby County'],
+  Texas: [
+    'Aldine ISD', 'Alief ISD', 'Arlington ISD', 'Austin ISD',
+    'Brownsville ISD', 'Conroe ISD', 'Cypress-Fairbanks ISD', 'Dallas ISD',
+    'El Paso ISD', 'Fort Bend ISD', 'Fort Worth ISD', 'Frisco ISD',
+    'Garland ISD', 'Houston ISD', 'Humble ISD', 'Katy ISD',
+    'Killeen ISD', 'Klein ISD', 'Lewisville ISD', 'North East ISD',
+    'Northside ISD', 'Pasadena ISD', 'Plano ISD', 'Round Rock ISD',
+    'San Antonio ISD', 'Socorro ISD', 'United ISD', 'Ysleta ISD',
+  ],
+  Utah: ['Alpine', 'Davis', 'Granite', 'Jordan'],
+  Virginia: ['Chesterfield County', 'Fairfax County', 'Henrico County', 'Loudoun County', 'Prince William County', 'Virginia Beach City'],
+  Washington: ['Seattle'],
+  Wisconsin: ['Milwaukee'],
+};
+
 const STEPS = {
 
   student_type: {
@@ -611,6 +676,8 @@ const STEPS = {
     subtitle: 'Your state of residency affects crucial factors such as in-state tuition, grant eligibility and more...',
     field: 'dropdown',
     stateOnly: true,
+    includeDistrictField: true,
+    districtFieldLabel: 'Select your district',
     includeSchoolField: true,
     schoolFieldLabel: 'Type your high school name',
     profileKey: 'state',
