@@ -143,6 +143,8 @@ OUTPUT FORMAT -- respond ONLY with a single JSON object. No markdown fences, no 
 
 Use mode="recommendation" once you have enough to responsibly build a list. Use mode="clarify" when you need more first. Use mode="answer" for a simple follow-up that doesn't require rebuilding the whole list (e.g. "what about Berkeley?") -- in that case keep schools/gaps/next_steps as empty arrays and top_pick as null, and put your full answer in "message".
 
+If the student explicitly asks you to rebuild, regenerate, refresh, or otherwise give them a new or updated version of the list -- even if nothing in their profile actually changed -- ALWAYS use mode="recommendation" and actually populate schools/summary/top_pick again. Never reply with mode="answer" claiming the list is rebuilt/refreshed/ready without including it: the interface only re-renders the list when you actually send the schools array, so an answer-only reply about a "rebuilt" list leaves the student staring at the same old one with nothing having visibly happened. If nothing changed, it's fine for the rebuilt list to come back looking the same -- that's honest -- but it must still be sent as a real mode="recommendation" payload, not just a message saying so.
+
 Every next_steps item should be concrete and specific (e.g. "Verify the ECON 5 equivalency for Business majors on CCSF's official ASSIST.org page" rather than a vague "check requirements"). Weave a reminder to verify with the target school's official transfer office (and ASSIST.org specifically if California) and a counselor into next_steps itself -- the interface already shows a general disclaimer, so don't repeat it as a separate sentence.`;
 }
 
