@@ -89,6 +89,22 @@
     render();
   }
 
+  // Wipes every bit of the previous run's data before a fresh intake
+  // starts -- otherwise a student who finishes once and clicks "Start"
+  // again keeps their old profile/answers/results underneath, which can
+  // silently mix HS and CC fields together or carry a stale GPA/major
+  // into a new run. A brand new intake should never see leftover state.
+  function resetSessionForNewIntake() {
+    state.history = [];
+    state.profile = {};
+    state.stepAnswers = {};
+    state.conversation = [];
+    state.turnCount = 0;
+    state.resultsData = null;
+    state.limitMessage = null;
+    saveState();
+  }
+
   // ---- Apply extracted/structured data into the flat profile ----
   function applyToProfile(step, payload) {
     const key = step.profileKey;
@@ -153,7 +169,10 @@
     const stepId = state.currentStepId;
 
     if (stepId === 'home') {
-      Engine.renderHome(() => goTo('student_type'));
+      Engine.renderHome(() => {
+        resetSessionForNewIntake();
+        goTo('student_type');
+      });
       return;
     }
 
