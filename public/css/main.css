@@ -357,14 +357,15 @@ textarea, select, input { font-family: inherit; }
 .app-card-main .cta-pill { margin-top: auto; }
 
 /* Card 1 (video panel): no icon, tighter rhythm so the text column comfortably
-   fits within a card sized to the video's own height (no letterbox bars). */
-.app-card-main--compact { padding: 54px 20px 18px 56px; gap: 8px; }
+   fits within a card sized to the video's own height (no letterbox bars).
+   The card's height is driven by the video's own aspect ratio, so a fixed
+   px offset for the button doesn't generalize across viewport widths --
+   centering the whole block vertically uses whatever leftover space there
+   is instead of leaving it stranded below the button. */
+.app-card-main--compact { padding: 54px 20px 18px 56px; gap: 8px; justify-content: center; }
 .app-card-main--compact .card-title { font-size: 24px; }
 .app-card-main--compact .card-body { font-size: 18px; line-height: 1.5; }
-/* Sits a bit below dead-center in the leftover space below the last
-   paragraph (10% further down than the exact midpoint) -- without touching
-   the text above, which keeps its exact position regardless of this value. */
-.app-card-main--compact .cta-pill { margin-top: 15px; }
+.app-card-main--compact .cta-pill { margin-top: 10px; }
 
 /* Card 2: no icon above the grid anymore -- the grid is the only child of
    app-card-main now, so it grows to fill the card's full height (flex:1)
