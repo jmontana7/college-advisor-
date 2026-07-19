@@ -379,6 +379,14 @@
       } catch {
         onReply({ mode: 'answer', message: 'Something went wrong reaching Obee. Please try again.' });
       }
+    }, async (latestData) => {
+      // The list can change after follow-up questions -- this lets the
+      // student pull the CURRENT version by email on demand, using the
+      // address they already gave at the gate instead of asking again.
+      const email = getRememberedEmail();
+      if (!email) return { ok: false };
+      await sendResultsEmail(email, latestData);
+      return { ok: true };
     });
   }
 

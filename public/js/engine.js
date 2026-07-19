@@ -1797,7 +1797,7 @@ const Engine = (() => {
   }
 
   // ---- RESULTS SCREEN ----
-  function renderResults(data, onSendFollowup) {
+  function renderResults(data, onSendFollowup, onResendEmail) {
     const node = mountTemplate('tpl-results');
     const body = node.querySelector('.results-body');
     const messagesEl = node.querySelector('.results-chat-messages');
@@ -1811,6 +1811,7 @@ const Engine = (() => {
       typewriterText(resultsTitleEl);
     }
     setText(node, '.js-copy-link', tr('ui.copyLink', null));
+    setText(node, '.js-resend-email', tr('ui.resendEmail', null));
     setText(node, '.js-download-pdf', tr('ui.downloadPdf', null));
     const disclaimerEl = node.querySelector('.results-disclaimer');
     if (disclaimerEl) disclaimerEl.textContent = tr('ui.resultsDisclaimer', disclaimerEl.textContent);
@@ -1981,6 +1982,27 @@ const Engine = (() => {
     });
 
     downloadPdfBtn.addEventListener('click', () => window.print());
+
+    const resendEmailBtn = node.querySelector('.js-resend-email');
+    if (resendEmailBtn && onResendEmail) {
+      resendEmailBtn.addEventListener('click', async () => {
+        const originalLabel = resendEmailBtn.textContent;
+        resendEmailBtn.disabled = true;
+        resendEmailBtn.textContent = tr('ui.resendEmailSending', 'Sending…');
+        try {
+          const result = await onResendEmail(currentData);
+          resendEmailBtn.textContent = result && result.ok
+            ? tr('ui.resendEmailSent', '✅ Sent!')
+            : tr('ui.resendEmailNoAddress', 'No email on file yet');
+        } catch {
+          resendEmailBtn.textContent = tr('ui.resendEmailFailed', '⚠️ Failed, try again');
+        }
+        setTimeout(() => {
+          resendEmailBtn.textContent = originalLabel;
+          resendEmailBtn.disabled = false;
+        }, 2200);
+      });
+    }
 
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {

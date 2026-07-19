@@ -1800,7 +1800,7 @@ textarea, select, input { font-family: inherit; }
 .results-header { text-align: left; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .results-header h2 { font-size: 28px; margin-bottom: 16px; }
 
-.results-actions { display: flex; gap: 10px; margin-bottom: 16px; }
+.results-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
 .results-action-btn {
   background: var(--gloss-white);
   border: none;
