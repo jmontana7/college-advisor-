@@ -127,13 +127,63 @@ const Engine = (() => {
     const logoBtn = document.getElementById('logo-home-btn');
     if (logoBtn) logoBtn.onclick = () => {}; // already home; no-op, avoids double-binding surprises
     applyHomeTranslations(node);
+    splitLongCard1ParagraphForMobile(node);
     typewriterHeroQuote(node);
     wireFaqAccordion(node);
     wireScrollReveal(node);
     buildDotField(node);
     syncVideoCardHeight(node);
     buildFlowCarousel(node);
+    ensurePromoVideoPlays(node);
     return node;
+  }
+
+  // Mobile-only (desktop's single dense paragraph is intentional there,
+  // this never runs above the phone breakpoint): breaks card 1's longer
+  // paragraph into two at the sentence boundary closest to its midpoint,
+  // language-agnostic since it runs after translations are applied. A
+  // wall of unbroken text reads worse stacked full-width on a narrow
+  // screen than the same content does in two shorter paragraphs.
+  function splitLongCard1ParagraphForMobile(node) {
+    if (window.innerWidth > 720) return;
+    const bodies = node.querySelectorAll('.app-card--video .card-body');
+    const target = bodies[bodies.length - 1];
+    if (!target) return;
+    const text = target.textContent;
+    const mid = Math.floor(text.length / 2);
+    const boundaries = [...text.matchAll(/[.!?]\s+/g)].map((m) => m.index + m[0].length);
+    if (!boundaries.length) return;
+    const splitAt = boundaries.reduce((best, b) => (Math.abs(b - mid) < Math.abs(best - mid) ? b : best));
+    const firstHalf = text.slice(0, splitAt).trim();
+    const secondHalf = text.slice(splitAt).trim();
+    if (!firstHalf || !secondHalf) return;
+    target.textContent = firstHalf;
+    const newP = document.createElement('p');
+    newP.className = 'card-body';
+    newP.textContent = secondHalf;
+    target.insertAdjacentElement('afterend', newP);
+  }
+
+  // <template> content is inert -- the video's src doesn't start loading
+  // until cloneNode() actually inserts it into the live document, so the
+  // autoplay attribute alone isn't always reliable coming out of a clone
+  // (seen on mobile Safari). Calling .play() explicitly right after mount
+  // reinforces the same autoplay+loop the markup already declares; on
+  // browsers where the attribute alone already worked this is a harmless
+  // no-op (playing an already-playing video does nothing).
+  function ensurePromoVideoPlays(node) {
+    const video = node.querySelector('.promo-video');
+    if (!video) return;
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    const playPromise = video.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        // Autoplay can still be blocked outright (e.g. low-power mode) --
+        // nothing to do here, the poster frame is a fine fallback.
+      });
+    }
   }
 
   // Types the hero quote out character by character, like a typewriter, on
@@ -2107,7 +2157,13 @@ const Engine = (() => {
     div.className = `chat-msg ${role}`;
     div.textContent = text;
     container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
+    // Always scrolling to the bottom meant the very first message in a
+    // fresh chat (often the longest -- a full clarifying paragraph) opened
+    // showing its own END instead of its start whenever it was taller than
+    // the container, which is common once it wraps into more lines on a
+    // narrow screen. Only auto-scroll-to-bottom from the second message on;
+    // the first should open readable from the top like any other message.
+    container.scrollTop = container.children.length === 1 ? 0 : container.scrollHeight;
   }
 
   // ---- Follow-up chat message cap -- app.js owns the actual count (it
