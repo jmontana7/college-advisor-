@@ -750,6 +750,9 @@ textarea, select, input { font-family: inherit; }
   color: var(--ink-soft);
   box-shadow: var(--gloss-shadow-sm);
   transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  /* Same smooth-arrival feel as the home page's cards, staggered per
+     button via animation-delay set in JS (see buildOptButton callers). */
+  animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .opt-btn:hover { transform: translateY(-1px); box-shadow: var(--gloss-shadow-lg); }
 .opt-btn.selected {
@@ -782,6 +785,9 @@ textarea, select, input { font-family: inherit; }
   width: 100%;
   max-width: 440px;
   height: auto;
+  /* Obee's own illustration gets the same smooth arrival as the home
+     page's cards. */
+  animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 /* Only present on steps with a transcript-upload box (currently cc_courses)
    -- keeps imgWrap's own row/anchor sizing untouched (still sees a single
@@ -1665,6 +1671,10 @@ textarea, select, input { font-family: inherit; }
   gap: 12px;
   margin-top: 18px;
 }
+/* Same smooth arrival as the home page's cards (fadeUp, defined above),
+   just on the nav buttons themselves instead of the whole screen riding
+   in as one block. */
+.nav-row > * { animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: 0.1s; }
 
 .back-btn {
   display: inline-flex;

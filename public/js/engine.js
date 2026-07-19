@@ -663,8 +663,12 @@ const Engine = (() => {
       }
       const container = document.createElement('div');
       container.className = (step.splitImage || step.imageOptions) ? 'opt-stack' : 'opt-row';
-      step.options.forEach((opt) => {
-        container.appendChild(buildOptButton(opt, container, (step.splitImage || step.imageOptions) ? 'opt-btn--stacked' : undefined));
+      step.options.forEach((opt, i) => {
+        const optBtn = buildOptButton(opt, container, (step.splitImage || step.imageOptions) ? 'opt-btn--stacked' : undefined);
+        // Same staggered-reveal feel as the home page's cards, just per
+        // button instead of per whole card.
+        optBtn.style.animationDelay = i * 0.06 + 's';
+        container.appendChild(optBtn);
       });
       fieldContent.appendChild(container);
     }
