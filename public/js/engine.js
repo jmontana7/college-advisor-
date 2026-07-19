@@ -1775,6 +1775,27 @@ const Engine = (() => {
     return wrap;
   }
 
+  // Types plain text out character by character with a blinking cursor,
+  // the same effect used for the home page's hero quote (see
+  // typewriterHeroQuote) -- factored out since this one has no bold/regular
+  // split to worry about, just a single text node.
+  function typewriterText(el, speed = 41) {
+    if (!el) return;
+    const text = el.textContent;
+    el.textContent = '';
+    el.classList.add('typing');
+    let i = 0;
+    (function tick() {
+      i++;
+      el.textContent = text.slice(0, i);
+      if (i < text.length) {
+        setTimeout(tick, speed);
+      } else {
+        el.classList.remove('typing');
+      }
+    })();
+  }
+
   // ---- RESULTS SCREEN ----
   function renderResults(data, onSendFollowup) {
     const node = mountTemplate('tpl-results');
@@ -1785,7 +1806,10 @@ const Engine = (() => {
     // Chrome only -- the recommendation content itself comes from the API,
     // which always answers in English regardless of the UI language.
     const resultsTitleEl = node.querySelector('.results-header h2');
-    if (resultsTitleEl) resultsTitleEl.textContent = tr('ui.resultsHeader', resultsTitleEl.textContent);
+    if (resultsTitleEl) {
+      resultsTitleEl.textContent = tr('ui.resultsHeader', resultsTitleEl.textContent);
+      typewriterText(resultsTitleEl);
+    }
     setText(node, '.js-copy-link', tr('ui.copyLink', null));
     setText(node, '.js-download-pdf', tr('ui.downloadPdf', null));
     const disclaimerEl = node.querySelector('.results-disclaimer');
