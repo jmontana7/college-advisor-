@@ -1882,7 +1882,7 @@ textarea, select, input { font-family: inherit; }
   margin: 16px 0;
 }
 
-.results-chat-dock { margin-top: 8px; }
+.results-chat-dock { margin-top: 8px; padding-top: 20px; border-top: 1px solid rgba(0,0,0,0.08); }
 .results-chat-messages { display: flex; flex-direction: column; gap: 16px; margin-bottom: 14px; padding-right: 10px; max-height: 320px; overflow-y: auto; }
 /* Keep the native scroll arrows/thumb (unlike the freeform textarea's
    scrollbar, which hides its buttons entirely) but drop the solid
