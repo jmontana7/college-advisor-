@@ -2030,6 +2030,22 @@ const Engine = (() => {
     container.scrollTop = container.scrollHeight;
   }
 
+  // ---- Follow-up chat message cap -- app.js owns the actual count (it
+  // persists in state.turnCount), this just locks the input once told to,
+  // whether that's right after the reply that hit the cap or immediately
+  // on mount if a reloaded session was already there. ----
+  function disableFollowupChat(message) {
+    const messagesEl = document.querySelector('.results-chat-messages');
+    const input = document.querySelector('.results-chat-input');
+    const sendBtn = document.querySelector('.send-btn');
+    if (!input || !sendBtn) return;
+    if (messagesEl) appendChatMsg(messagesEl, 'ai', message);
+    input.disabled = true;
+    input.value = '';
+    input.placeholder = message;
+    sendBtn.disabled = true;
+  }
+
   function appendTypingIndicator(container) {
     const div = document.createElement('div');
     div.className = 'chat-msg ai chat-typing';
@@ -2056,6 +2072,7 @@ const Engine = (() => {
     renderLimitReached,
     renderInfoModal,
     renderEmailGateModal,
+    disableFollowupChat,
     encodeShareData,
     decodeShareData,
   };

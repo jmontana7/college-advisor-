@@ -9,6 +9,11 @@
 
 (function () {
   const STORAGE_KEY = 'obee_session_v1';
+  // Free product, real API cost per message -- caps total exchanges in the
+  // results screen (the initial fetch counts as #1, every follow-up after
+  // adds one more) so nobody can chat unboundedly. Counted via
+  // state.turnCount, which already persists across reloads.
+  const RESULTS_CHAT_LIMIT = 15;
 
   const state = {
     currentStepId: 'home',
@@ -331,6 +336,7 @@
         return;
       }
       state.resultsData = data;
+      state.turnCount = 1;
       saveState();
 
       // Gate every fresh results screen, whether Claude already has enough
@@ -359,18 +365,37 @@
     }
   }
 
+  function chatLimitMessage() {
+    return tr(
+      'dynamic.chatLimitReached',
+      "You've reached this list's question limit. Feel free to re-read everything above, save it, or start a new session for a fresh list."
+    );
+  }
+
   function mountResults(data) {
     Engine.renderResults(data, async (followupText, onReply) => {
+      if (state.turnCount >= RESULTS_CHAT_LIMIT) {
+        // Shouldn't normally be reachable -- the input gets disabled the
+        // moment the limit is hit -- but guards a stray call regardless.
+        return;
+      }
       state.turnCount++;
+      saveState();
       const followupMessages = [
         { role: 'user', content: JSON.stringify(state.profile) },
         { role: 'assistant', content: JSON.stringify(state.resultsData) },
         { role: 'user', content: followupText },
       ];
+
+      function afterReply() {
+        if (state.turnCount >= RESULTS_CHAT_LIMIT) Engine.disableFollowupChat(chatLimitMessage());
+      }
+
       try {
         const reply = await callChatApi({ mode: 'results', resultsPhase: 'followup', messages: followupMessages });
         if (reply.limitReached) {
           onReply({ mode: 'answer', message: reply.reply });
+          afterReply();
           return;
         }
         if (reply.mode === 'blocked') {
@@ -380,6 +405,7 @@
               tr('dynamic.keepFriendlyText', 'I’m only here to help with your college search — let’s keep things respectful and on-topic so I can help you.')
           );
           onReply({ mode: 'blocked', message: null });
+          afterReply();
           return;
         }
         if (reply.mode === 'recommendation') {
@@ -391,12 +417,15 @@
             saveUnlockedEmail(email);
             await sendResultsEmail(email, reply);
             onReply(reply);
+            afterReply();
           }, getRememberedEmail());
           return;
         }
         onReply(reply);
+        afterReply();
       } catch {
         onReply({ mode: 'answer', message: 'Something went wrong reaching Obee. Please try again.' });
+        afterReply();
       }
     }, async (latestData) => {
       // The list can change after follow-up questions -- this lets the
@@ -407,6 +436,8 @@
       await sendResultsEmail(email, latestData);
       return { ok: true };
     });
+
+    if (state.turnCount >= RESULTS_CHAT_LIMIT) Engine.disableFollowupChat(chatLimitMessage());
   }
 
   // ---- Boot ----
