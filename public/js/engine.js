@@ -1210,6 +1210,11 @@ const Engine = (() => {
     fieldsRow.className = 'entry-fields-row';
     const draft = {};
     const fieldRefs = [];
+    // Autocomplete fields (e.g. Class Name) register a refresh function
+    // here so a Subject select elsewhere on the same card can re-filter
+    // their suggestion list the moment it changes, not just next time the
+    // student focuses/types in the autocomplete field.
+    const autocompleteRefreshFns = [];
     // The add button always lands inline with whichever field is LAST in
     // the array, instead of a separate footer row below -- keeps the card
     // shorter. collegeChoiceToggleRow is that same idea specialized for
@@ -1244,6 +1249,7 @@ const Engine = (() => {
         });
         select.addEventListener('change', () => {
           draft[f.key] = select.value;
+          if (f.key === 'subject') autocompleteRefreshFns.forEach((refresh) => refresh());
         });
         if (isLastField(f)) {
           const row = document.createElement('div');
@@ -1265,14 +1271,28 @@ const Engine = (() => {
         const listEl = document.createElement('div');
         listEl.className = 'autocomplete-list';
 
-        const majorCat = profile ? guessCategoryFromMajorText(profile.major) : null;
-        const orderedSuggestions = majorCat
-          ? [...f.suggestions].sort((a, b) => (b.cat === majorCat) - (a.cat === majorCat))
-          : f.suggestions;
+        const subjectFieldIndex = fields.findIndex((ff) => ff.key === 'subject');
+
+        // If a Subject field exists on this card and has a value picked,
+        // narrow suggestions down to that subject's courses instead of just
+        // reordering by the student's stated major -- picking "Math" should
+        // mean the list is actually math courses, not everything with math
+        // ones merely bumped to the top.
+        function getSuggestionPool() {
+          const subjectSelect = subjectFieldIndex !== -1 ? fieldRefs[subjectFieldIndex] : null;
+          const subjectCat = subjectSelect && subjectSelect.value ? subjectSelect.value : null;
+          if (subjectCat) {
+            return f.suggestions.filter((s) => s.cat === subjectCat);
+          }
+          const majorCat = profile ? guessCategoryFromMajorText(profile.major) : null;
+          return majorCat
+            ? [...f.suggestions].sort((a, b) => (b.cat === majorCat) - (a.cat === majorCat))
+            : f.suggestions;
+        }
 
         function renderSuggestions() {
           const q = (input.value || '').toLowerCase();
-          const matches = orderedSuggestions.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 8);
+          const matches = getSuggestionPool().filter((s) => s.name.toLowerCase().includes(q)).slice(0, 8);
           listEl.innerHTML = '';
           matches.forEach((m) => {
             const item = document.createElement('div');
@@ -1288,6 +1308,7 @@ const Engine = (() => {
           });
           listEl.classList.toggle('open', matches.length > 0);
         }
+        autocompleteRefreshFns.push(renderSuggestions);
 
         input.addEventListener('focus', renderSuggestions);
         input.addEventListener('input', () => {
