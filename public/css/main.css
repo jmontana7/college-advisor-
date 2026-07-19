@@ -2067,6 +2067,66 @@ textarea, select, input { font-family: inherit; }
   .question-split-image img { max-width: 260px; }
   .question-split--card { flex-direction: column; }
   .question-split--card .question-field-content { flex-basis: auto; width: 100%; }
+
+  /* Mobile-only safety net: every .question-split--step-<id> rule (further
+     up this file) is hand-tuned in fixed desktop px widths -- some over
+     400-500px wide -- and each one has higher CSS specificity (two classes)
+     than a plain mobile reset, so it kept winning here and forcing the
+     page wider than the phone's own viewport (confirmed via a real mobile
+     viewport: hs_major's image alone was 506px, cc_gpa/hs_gpa's sliders
+     460px, both far past a ~390px screen). !important is deliberate: this
+     is a blanket reset for however many of these per-step overrides exist
+     now or get added later, not a one-off tweak, and it changes nothing
+     at widths above this query. */
+  [class*="question-split--step-"] {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  [class*="question-split--step-"] .question-split-image {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    justify-content: center !important;
+  }
+  [class*="question-split--step-"] .question-split-image img {
+    width: auto !important;
+    max-width: 260px !important;
+    transform: none !important;
+  }
+  [class*="question-split--step-"] .question-field-content,
+  [class*="question-split--step-"] .card-stack,
+  [class*="question-split--step-"] .entry-card,
+  [class*="question-split--step-"] .entry-card-peek,
+  [class*="question-split--step-"] .slider-group,
+  [class*="question-split--step-"] .slider-wrap,
+  [class*="question-split--step-"] .slider-row-head {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  /* A longer label (e.g. "What's your transferable GPA?") plus the toggle
+     button side by side just doesn't fit a phone-width row even after the
+     resets above -- let the button drop to its own line instead of
+     pushing past the edge. */
+  [class*="question-split--step-"] .slider-row-head { flex-wrap: wrap !important; row-gap: 8px !important; }
+  .slider-optional-toggle {
+    white-space: normal !important;
+    flex-shrink: 1 !important;
+    max-width: 100% !important;
+    text-align: center !important;
+  }
+  /* Two more desktop-only nudges that push content past a phone's edge:
+     cc_units' bar is shifted right by a fixed margin to line up with the
+     chat bar at its 900px desktop width, and cc_transfer_timeline's image
+     is shifted right by a fixed transform for the same reason -- neither
+     nudge means anything once everything's already stacked full-width. */
+  .slider-wrap--cc_units { margin-left: 0 !important; }
+  .question-screen--step-cc_transfer_timeline .question-stacked-image { transform: none !important; }
 }
 
 @media (max-width: 720px) {
@@ -2080,6 +2140,13 @@ textarea, select, input { font-family: inherit; }
      collide. Drop it into normal flex flow (logo left, button right) so they
      can never overlap, regardless of button width or translated label length. */
   .header-logo-btn { position: static; left: auto; top: auto; transform: none; }
+  /* Anchored from the left (desktop default) this sits close enough to the
+     right edge of the header that it overflows straight off a phone
+     screen, forcing the whole page horizontally scrollable even while
+     closed (confirmed on a real mobile viewport: 175px past the edge).
+     Anchoring from the right instead keeps it growing back onto the
+     screen. */
+  .lang-dropdown { left: auto; right: 0; }
   .cta-pill { padding: 10px 18px; font-size: 14px; }
   .screen { padding: 32px 20px 24px; }
   .question-title { font-size: 26px; }
