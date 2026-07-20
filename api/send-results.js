@@ -87,7 +87,10 @@ export default async function handler(req, res) {
 
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
   if (!RESEND_API_KEY) {
-    console.log('Lead captured (RESEND_API_KEY not set):', email);
+    // Deliberately not logging the email itself -- Vercel's function logs
+    // aren't a real lead store and shouldn't hold a student's PII
+    // indefinitely just because this env var happens to be unset.
+    console.log('Lead captured but RESEND_API_KEY is not set; email withheld from logs.');
     return res.status(200).json({ sent: false });
   }
 

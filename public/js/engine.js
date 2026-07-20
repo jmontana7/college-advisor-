@@ -481,11 +481,36 @@ const Engine = (() => {
   }
 
   function wireFaqAccordion(node) {
-    node.querySelectorAll('.faq-row').forEach((row) => {
-      row.addEventListener('click', () => {
+    const rows = node.querySelectorAll('.faq-row');
+    rows.forEach((row) => {
+      const head = row.querySelector('.faq-row-head');
+      if (!head) return;
+      // Was a plain, unfocusable <div> -- keyboard users couldn't reach or
+      // open these at all. role="button" + tabindex makes it a real
+      // keyboard-operable control without touching how it looks.
+      head.setAttribute('role', 'button');
+      head.setAttribute('tabindex', '0');
+      head.setAttribute('aria-expanded', 'false');
+
+      function toggle() {
         const wasOpen = row.classList.contains('open');
-        node.querySelectorAll('.faq-row').forEach((r) => r.classList.remove('open'));
-        if (!wasOpen) row.classList.add('open');
+        rows.forEach((r) => {
+          r.classList.remove('open');
+          const h = r.querySelector('.faq-row-head');
+          if (h) h.setAttribute('aria-expanded', 'false');
+        });
+        if (!wasOpen) {
+          row.classList.add('open');
+          head.setAttribute('aria-expanded', 'true');
+        }
+      }
+
+      head.addEventListener('click', toggle);
+      head.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggle();
+        }
       });
     });
   }
