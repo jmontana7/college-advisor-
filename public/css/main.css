@@ -602,6 +602,7 @@ textarea, select, input { font-family: inherit; }
   font-weight: 300;
   color: var(--ink-soft);
   line-height: 1.6;
+  text-align: center;
   padding: 0 4px;
   opacity: 0;
   transform: translateY(-6px);
