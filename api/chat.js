@@ -49,9 +49,122 @@ const CC_STEPS = [
 const ALL_STEPS = ['student_type', ...HS_STEPS, ...CC_STEPS];
 
 // --------------------------------------------------------------------------
+//  Supported UI languages -- must match the `code` values in
+//  public/js/i18n.js's LANGUAGES array. The frontend sends whichever one
+//  the student picked from the language dropdown; every phase (intake
+//  replies, results, follow-up chat) must honor it, not just the static
+//  UI strings -- a student who switches to Spanish or French shouldn't get
+//  English back from the model.
+// --------------------------------------------------------------------------
+const SUPPORTED_LANGS = {
+  en: 'English',
+  es: 'Spanish',
+  zh: 'Simplified Chinese',
+  hi: 'Hindi',
+  fr: 'French',
+};
+
+function resolveLangName(lang) {
+  return SUPPORTED_LANGS[lang] || SUPPORTED_LANGS.en;
+}
+
+// --------------------------------------------------------------------------
+//  Fixed user-facing strings for this file's own error/fallback paths (rate
+//  limits, upstream failures, parse fallbacks, transcript errors). These
+//  never go through the model, so they need their own translations instead
+//  of relying on langName in a prompt -- otherwise a student on French or
+//  Chinese would suddenly see English the moment something went wrong.
+// --------------------------------------------------------------------------
+const MESSAGES = {
+  turnLimit: {
+    en: "We've reached this session's message limit. Save what you have and continue with your counselor, or start a new session. Remember to verify everything with your target school and a counselor.",
+    es: 'Llegamos al límite de mensajes de esta sesión. Guarda lo que tienes y continúa con tu consejero, o empieza una nueva sesión. Recuerda verificar todo con tu universidad objetivo y un consejero.',
+    fr: "Nous avons atteint la limite de messages de cette session. Sauvegarde ce que tu as et continue avec ton conseiller, ou démarre une nouvelle session. N'oublie pas de tout vérifier avec ton université cible et un conseiller.",
+    zh: '本次会话的消息数量已达上限。请保存好你现在的内容，并联系你的升学顾问继续，或者开始一个新的会话。记得向你的目标院校和顾问核实所有信息。',
+    hi: 'इस सेशन की मैसेज सीमा पूरी हो गई है। जो जानकारी आपके पास है उसे सेव करें और अपने काउंसलर के साथ आगे बढ़ें, या एक नया सेशन शुरू करें। अपने लक्षित कॉलेज और काउंसलर से हर जानकारी की पुष्टि करना न भूलें।',
+  },
+  creditLimitResults: {
+    en: "Obee has reached its usage limit for now 🙏 We're working on expanding it. Please save what you have and check back soon, thank you for your patience.",
+    es: 'Obee llegó a su límite de uso por ahora 🙏 Estamos trabajando para ampliarlo. Guarda lo que tienes y vuelve pronto, gracias por tu paciencia.',
+    fr: "Obee a atteint sa limite d'utilisation pour le moment 🙏 Nous travaillons à l'agrandir. Sauvegarde ce que tu as et reviens bientôt, merci de ta patience.",
+    zh: 'Obee 目前已达到使用上限 🙏 我们正在努力扩容。请保存好你现在的内容，稍后再回来看看，谢谢你的耐心。',
+    hi: 'Obee अभी अपनी उपयोग सीमा तक पहुंच गया है 🙏 हम इसे बढ़ाने पर काम कर रहे हैं। कृपया अपनी जानकारी सेव करें और जल्द ही वापस देखें, आपके धैर्य के लिए धन्यवाद।',
+  },
+  upstreamError: {
+    en: 'There was a problem generating a response. Please try again in a moment.',
+    es: 'Hubo un problema al generar una respuesta. Intenta de nuevo en un momento.',
+    fr: "Un problème est survenu lors de la génération d'une réponse. Réessaie dans un instant.",
+    zh: '生成回复时出现了问题，请稍后再试。',
+    hi: 'जवाब तैयार करने में एक समस्या आई। कृपया थोड़ी देर बाद फिर कोशिश करें।',
+  },
+  fallbackResultsMessage: {
+    en: "Here's what I found.",
+    es: 'Esto es lo que encontré.',
+    fr: "Voici ce que j'ai trouvé.",
+    zh: '这是我找到的内容。',
+    hi: 'यह रहा जो मुझे मिला।',
+  },
+  fallbackIntakeReply: {
+    en: 'Got it, thanks for sharing that.',
+    es: 'Entendido, gracias por compartirlo.',
+    fr: "Compris, merci de l'avoir partagé.",
+    zh: '明白了，谢谢你的分享。',
+    hi: 'समझ गया, इसे साझा करने के लिए धन्यवाद।',
+  },
+  internalError: {
+    en: 'Internal error. Please try again.',
+    es: 'Error interno. Intenta de nuevo.',
+    fr: 'Erreur interne. Réessaie.',
+    zh: '内部错误，请重试。',
+    hi: 'आंतरिक त्रुटि। कृपया फिर से कोशिश करें।',
+  },
+  inputTooLong: {
+    en: (n) => `Your message is too long (max ${n} characters).`,
+    es: (n) => `Tu mensaje es demasiado largo (máximo ${n} caracteres).`,
+    fr: (n) => `Ton message est trop long (maximum ${n} caractères).`,
+    zh: (n) => `你的消息太长了（最多 ${n} 个字符）。`,
+    hi: (n) => `आपका मैसेज बहुत लंबा है (अधिकतम ${n} अक्षर)।`,
+  },
+  transcriptFileTooLarge: {
+    en: 'That file is too large, please upload something under 8MB.',
+    es: 'Ese archivo es demasiado grande, sube algo de menos de 8MB.',
+    fr: 'Ce fichier est trop volumineux, envoie quelque chose de moins de 8 Mo.',
+    zh: '这个文件太大了，请上传小于 8MB 的文件。',
+    hi: 'वह फ़ाइल बहुत बड़ी है, कृपया 8MB से छोटी फ़ाइल अपलोड करें।',
+  },
+  transcriptCreditLimit: {
+    en: "Obee has reached its usage limit for now 🙏 Please try again soon, or add your courses manually.",
+    es: 'Obee llegó a su límite de uso por ahora 🙏 Intenta de nuevo pronto, o agrega tus cursos manualmente.',
+    fr: "Obee a atteint sa limite d'utilisation pour le moment 🙏 Réessaie bientôt, ou ajoute tes cours manuellement.",
+    zh: 'Obee 目前已达到使用上限 🙏 请稍后再试，或手动添加你的课程。',
+    hi: 'Obee अभी अपनी उपयोग सीमा तक पहुंच गया है 🙏 कृपया जल्द ही फिर कोशिश करें, या अपने कोर्स खुद जोड़ें।',
+  },
+  transcriptUpstreamError: {
+    en: 'There was a problem reading that file. Please try again in a moment.',
+    es: 'Hubo un problema al leer ese archivo. Intenta de nuevo en un momento.',
+    fr: 'Un problème est survenu lors de la lecture de ce fichier. Réessaie dans un instant.',
+    zh: '读取该文件时出现了问题，请稍后再试。',
+    hi: 'उस फ़ाइल को पढ़ने में एक समस्या आई। कृपया थोड़ी देर बाद फिर कोशिश करें।',
+  },
+  rateLimited: {
+    en: 'Too many requests. Please wait a moment and try again.',
+    es: 'Demasiadas solicitudes. Espera un momento e intenta de nuevo.',
+    fr: 'Trop de requêtes. Attends un instant et réessaie.',
+    zh: '请求过于频繁，请稍等片刻后再试。',
+    hi: 'बहुत सारे अनुरोध हो गए हैं। कृपया थोड़ी देर रुककर फिर कोशिश करें।',
+  },
+};
+
+function msg(key, lang, ...args) {
+  const entry = MESSAGES[key];
+  const resolved = (entry && (entry[lang] || entry.en)) || '';
+  return typeof resolved === 'function' ? resolved(...args) : resolved;
+}
+
+// --------------------------------------------------------------------------
 //  INTAKE system prompt -- extracts data + decides step jumps.
 // --------------------------------------------------------------------------
-function buildIntakeSystemPrompt() {
+function buildIntakeSystemPrompt(langName) {
   return `You are the conversational engine of Obee, a warm, honest college advisor for US students who talks like a supportive friend -- not a form, not a corporate chatbot. Your job right now is NOT to give the final recommendation -- it's to help fill in the student's profile during a Duolingo-style intake (card-by-card questions), interpreting what they write in a free-text field called "Anything else you'd like to share?".
 
 CONTEXT YOU RECEIVE EACH TURN:
@@ -64,7 +177,7 @@ YOUR JOB:
 2. Extract any profile data present (GPA, courses, extracurriculars, state, major, etc.), even if it doesn't map exactly to the current step -- students sometimes volunteer info about future steps.
 3. Decide if the student's message naturally already answers a FUTURE step that hasn't been shown yet. If so, set next_step to jump there.
 4. If the text adds nothing new or is just conversation (greetings, questions), do not fabricate extracted data -- leave extracted_data empty.
-5. Write a very short (1 sentence, max 2) warm conversational reply in the SAME language the student wrote in (English or Spanish). Confirm what you understood without sounding robotic.
+5. Write a very short (1 sentence, max 2) warm conversational reply in ${langName}, regardless of what language the student's own text happens to be in -- ${langName} is the language the student picked for the whole app, not a guess based on their message. Confirm what you understood without sounding robotic.
 
 VALID STEP IDS FOR next_step (use the exact id, or null if no jump applies):
 ${ALL_STEPS.map((s) => `- ${s}`).join('\n')}
@@ -95,10 +208,10 @@ No extra fields. No reasoning outside the JSON.`;
 //  clarifying questions instead of guessing, and keeps the anti-hallucination
 //  rule (the single most important principle in this whole product) intact.
 // --------------------------------------------------------------------------
-function buildResultsSystemPrompt() {
+function buildResultsSystemPrompt(langName) {
   return `You are Obee, a warm, honest college advisor who talks like a supportive friend -- not a corporate chatbot -- helping US students (high schoolers applying as freshmen, and community college students transferring to a 4-year university) find the right path.
 
-LANGUAGE: Always respond in English in this phase, no matter what language the student used during the intake. This is a firm rule with no exceptions.
+LANGUAGE: Respond in ${langName} for every text field (message, summary, note, reasoning, gaps, next_steps) in this phase. This is the language the student picked for the whole app -- use it no matter what language the student's own messages are in. School/program names, and any official terms that don't have a natural translation, can stay in their original form.
 
 You will receive the student's full profile as JSON in the first user message. Later messages may be follow-up questions -- you will also see your own prior JSON responses in the conversation history.
 
@@ -206,7 +319,7 @@ const GRADE_OPTIONS = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 
 //  request shape from the chat modes above (no `messages` array), so it's
 //  handled as its own early branch rather than folded into the main flow.
 // --------------------------------------------------------------------------
-async function handleTranscriptRequest({ fileData, mediaType }, API_KEY, res) {
+async function handleTranscriptRequest({ fileData, mediaType, lang }, API_KEY, res) {
   if (typeof fileData !== 'string' || !fileData) {
     return res.status(400).json({ error: 'fileData is required' });
   }
@@ -220,7 +333,7 @@ async function handleTranscriptRequest({ fileData, mediaType }, API_KEY, res) {
   if (base64.length > CONFIG.TRANSCRIPT_MAX_BASE64_CHARS) {
     return res.status(400).json({
       error: 'file_too_large',
-      message: 'That file is too large, please upload something under 8MB.',
+      message: msg('transcriptFileTooLarge', lang),
     });
   }
 
@@ -261,12 +374,12 @@ async function handleTranscriptRequest({ fileData, mediaType }, API_KEY, res) {
       if (looksLikeCredit) {
         return res.status(200).json({
           error: 'limit_reached',
-          message: "Obee has reached its usage limit for now 🙏 Please try again soon, or add your courses manually.",
+          message: msg('transcriptCreditLimit', lang),
         });
       }
       return res.status(502).json({
         error: 'upstream_error',
-        message: 'There was a problem reading that file. Please try again in a moment.',
+        message: msg('transcriptUpstreamError', lang),
       });
     }
 
@@ -287,7 +400,7 @@ async function handleTranscriptRequest({ fileData, mediaType }, API_KEY, res) {
     return res.status(200).json({ readable: parsed.readable !== false, courses });
   } catch (err) {
     console.error('Transcript proxy error:', err);
-    return res.status(500).json({ error: 'internal_error', message: 'Internal error. Please try again.' });
+    return res.status(500).json({ error: 'internal_error', message: msg('internalError', lang) });
   }
 }
 
@@ -306,13 +419,6 @@ export default async function handler(req, res) {
 
   const ip = (req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
 
-  if (rateLimited(ip)) {
-    return res.status(429).json({
-      error: 'rate_limited',
-      message: 'Too many requests. Please wait a moment and try again.',
-    });
-  }
-
   let body;
   try {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -320,10 +426,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
 
-  const { messages, mode, currentStep, profile, fileData, mediaType } = body || {};
+  const { messages, mode, currentStep, profile, fileData, mediaType, lang } = body || {};
+  const langName = resolveLangName(lang);
+
+  if (rateLimited(ip)) {
+    return res.status(429).json({
+      error: 'rate_limited',
+      message: msg('rateLimited', lang),
+    });
+  }
 
   if (mode === 'transcript') {
-    return handleTranscriptRequest({ fileData, mediaType }, API_KEY, res);
+    return handleTranscriptRequest({ fileData, mediaType, lang }, API_KEY, res);
   }
 
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -344,9 +458,7 @@ export default async function handler(req, res) {
   if (userTurns > CONFIG.MAX_MESSAGES_PER_CONVERSATION) {
     return res.status(200).json({
       limitReached: true,
-      reply:
-        "We've reached this session's message limit. Save what you have and continue with your counselor, " +
-        'or start a new session. Remember to verify everything with your target school and a counselor.',
+      reply: msg('turnLimit', lang),
     });
   }
 
@@ -354,7 +466,7 @@ export default async function handler(req, res) {
   if (lastUser && typeof lastUser.content === 'string' && lastUser.content.length > CONFIG.MAX_INPUT_CHARS) {
     return res.status(400).json({
       error: 'input_too_long',
-      message: `Your message is too long (max ${CONFIG.MAX_INPUT_CHARS} characters).`,
+      message: msg('inputTooLong', lang, CONFIG.MAX_INPUT_CHARS),
     });
   }
 
@@ -370,7 +482,7 @@ export default async function handler(req, res) {
     );
   }
 
-  const systemPrompt = isResultsPhase ? buildResultsSystemPrompt() : buildIntakeSystemPrompt();
+  const systemPrompt = isResultsPhase ? buildResultsSystemPrompt(langName) : buildIntakeSystemPrompt(langName);
 
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -400,15 +512,13 @@ export default async function handler(req, res) {
       if (looksLikeCredit) {
         return res.status(200).json({
           limitReached: true,
-          reply:
-            "Obee has reached its usage limit for now \uD83D\uDE4F We're working on expanding it. " +
-            'Please save what you have and check back soon, thank you for your patience.',
+          reply: msg('creditLimitResults', lang),
         });
       }
 
       return res.status(502).json({
         error: 'upstream_error',
-        message: 'There was a problem generating a response. Please try again in a moment.',
+        message: msg('upstreamError', lang),
       });
     }
 
@@ -419,7 +529,7 @@ export default async function handler(req, res) {
       if (!parsed) {
         return res.status(200).json({
           mode: 'answer',
-          message: rawText.slice(0, 500) || "Here's what I found.",
+          message: rawText.slice(0, 500) || msg('fallbackResultsMessage', lang),
           summary: null, schools: [], top_pick: null, gaps: [], next_steps: [],
           parse_warning: true,
         });
@@ -439,7 +549,7 @@ export default async function handler(req, res) {
     const parsed = safeParseModelJSON(rawText);
     if (!parsed) {
       return res.status(200).json({
-        reply: rawText.slice(0, 300) || 'Got it, thanks for sharing that.',
+        reply: rawText.slice(0, 300) || msg('fallbackIntakeReply', lang),
         extracted_data: {},
         next_step: null,
         needs_clarification: false,
@@ -458,7 +568,7 @@ export default async function handler(req, res) {
     console.error('Proxy error:', err);
     return res.status(500).json({
       error: 'internal_error',
-      message: 'Internal error. Please try again.',
+      message: msg('internalError', lang),
     });
   }
 }

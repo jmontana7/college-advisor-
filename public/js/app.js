@@ -60,7 +60,7 @@
   }
 
   async function uploadTranscript(fileData, mediaType) {
-    return callChatApi({ mode: 'transcript', fileData, mediaType });
+    return callChatApi({ mode: 'transcript', fileData, mediaType, lang: Engine.getLang() });
   }
 
   function getStep(id) {
@@ -153,6 +153,7 @@
         messages: state.conversation,
         currentStep: step.id,
         profile: state.profile,
+        lang: Engine.getLang(),
       });
 
       if (data.limitReached) {
@@ -329,6 +330,7 @@
         mode: 'results',
         resultsPhase: 'initial',
         messages: [{ role: 'user', content: JSON.stringify(state.profile) }],
+        lang: Engine.getLang(),
       });
       if (data.limitReached) {
         state.limitMessage = data.reply;
@@ -392,7 +394,7 @@
       }
 
       try {
-        const reply = await callChatApi({ mode: 'results', resultsPhase: 'followup', messages: followupMessages });
+        const reply = await callChatApi({ mode: 'results', resultsPhase: 'followup', messages: followupMessages, lang: Engine.getLang() });
         if (reply.limitReached) {
           onReply({ mode: 'answer', message: reply.reply });
           afterReply();

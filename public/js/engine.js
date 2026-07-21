@@ -2246,5 +2246,6 @@ const Engine = (() => {
     disableFollowupChat,
     encodeShareData,
     decodeShareData,
+    getLang,
   };
 })();
