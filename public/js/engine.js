@@ -164,25 +164,32 @@ const Engine = (() => {
     target.insertAdjacentElement('afterend', newP);
   }
 
-  // <template> content is inert -- the video's src doesn't start loading
-  // until cloneNode() actually inserts it into the live document, so the
-  // autoplay attribute alone isn't always reliable coming out of a clone
-  // (seen on mobile Safari). Calling .play() explicitly right after mount
-  // reinforces the same autoplay+loop the markup already declares; on
-  // browsers where the attribute alone already worked this is a harmless
-  // no-op (playing an already-playing video does nothing).
+  // The video's real src sits in data-src instead of src so it never
+  // competes for bandwidth with fonts/CSS/JS on a slow connection -- it's
+  // a 3MB decorative clip, not core content. We only attach src (and start
+  // playback) once the rest of the page has already finished loading; if
+  // the page is already fully loaded by the time this runs (e.g. the user
+  // navigated back to home), it starts right away.
   function ensurePromoVideoPlays(node) {
     const video = node.querySelector('.promo-video');
     if (!video) return;
     video.muted = true;
     video.loop = true;
     video.playsInline = true;
-    const playPromise = video.play();
-    if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(() => {
-        // Autoplay can still be blocked outright (e.g. low-power mode) --
-        // nothing to do here, the poster frame is a fine fallback.
-      });
+    function startVideo() {
+      if (!video.src) video.src = video.dataset.src;
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          // Autoplay can still be blocked outright (e.g. low-power mode) --
+          // nothing to do here, the poster frame is a fine fallback.
+        });
+      }
+    }
+    if (document.readyState === 'complete') {
+      startVideo();
+    } else {
+      window.addEventListener('load', startVideo, { once: true });
     }
   }
 

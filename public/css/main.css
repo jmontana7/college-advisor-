@@ -1,3 +1,15 @@
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ============================================================
    Obee -- Design tokens (from Figma)
    ============================================================ */
@@ -569,17 +581,19 @@ textarea, select, input { font-family: inherit; }
   font-weight: 300;
   padding: 30px 4px;
 }
-.faq-chevron { display: inline-flex; align-items: center; justify-content: center; color: var(--obelisk-purple); transition: transform 0.2s; }
+.faq-chevron { display: inline-flex; align-items: center; justify-content: center; color: var(--obelisk-purple); transition: transform 0.4s cubic-bezier(0.65, 0, 0.35, 1); }
 .faq-row.open .faq-chevron { transform: rotate(180deg); }
 
 /* grid-template-rows 0fr -> 1fr instead of animating max-height/padding:
    the old approach forced a synchronous layout recalc on every frame (the
    visible "mini lag" on click); this animates smoothly without guessing an
-   arbitrary max-height. */
+   arbitrary max-height. A slower, eased curve (instead of linear "ease")
+   plus a staggered opacity/translate fade on the inner text is what makes
+   the open feel soft instead of a mechanical snap. */
 .faq-answer {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.3s ease;
+  transition: grid-template-rows 0.4s cubic-bezier(0.65, 0, 0.35, 1);
 }
 .faq-row.open .faq-answer { grid-template-rows: 1fr; }
 .faq-answer-inner {
@@ -589,8 +603,16 @@ textarea, select, input { font-family: inherit; }
   color: var(--ink-soft);
   line-height: 1.6;
   padding: 0 4px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
-.faq-row.open .faq-answer-inner { padding: 0 4px 26px; }
+.faq-row.open .faq-answer-inner {
+  padding: 0 4px 26px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.35s ease 0.1s, transform 0.35s ease 0.1s;
+}
 
 /* FINAL CTA */
 .final-cta {

@@ -3,10 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Obee, Find Your Path</title>
+<title>Obee, AI College Advisor</title>
+<meta name="description" content="Obee is a free AI college advisor for high school and community college transfer students. Have a real conversation and get a personalized, honest list of schools that actually fit you.">
+<link rel="canonical" href="https://www.hiobee.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Obee">
+<meta property="og:title" content="Obee, AI College Advisor">
+<meta property="og:description" content="Obee is a free AI college advisor for high school and community college transfer students. Have a real conversation and get a personalized, honest list of schools that actually fit you.">
+<meta property="og:url" content="https://www.hiobee.com/">
+<meta property="og:image" content="https://www.hiobee.com/assets/banner-obee.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Obee, AI College Advisor">
+<meta name="twitter:description" content="Obee is a free AI college advisor for high school and community college transfer students. Have a real conversation and get a personalized, honest list of schools that actually fit you.">
+<meta name="twitter:image" content="https://www.hiobee.com/assets/banner-obee.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montaga&family=Schoolbell&family=Elms+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Schoolbell&family=Elms+Sans:wght@400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/main.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Obee",
+  "url": "https://www.hiobee.com/",
+  "logo": "https://www.hiobee.com/assets/obee-full-lockup.png",
+  "description": "Obee is a free AI college advisor for high school and community college transfer students, offering a personalized, honest list of schools that actually fit them."
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What's different between Obee and just asking ChatGPT or Claude directly?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Anyone can open ChatGPT or Claude and ask for college advice, but a plain AI chat will answer confidently even when it's guessing, and only admit it later once you catch the mistake yourself. Obee is built specifically to prevent that: a full structured intake gathers exactly what a real admissions decision depends on, and if that still isn't enough, Obee asks another question instead of guessing. Every recommendation is checked against real, documented systems, like California's ASSIST, TAG, and IGETC transfer agreements, and explicitly tagged as verified, general, or unknown."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How much does it cost?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Obee is completely free for students. No login, no accounts, just your email once so we can send you a copy of your list."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it replace traditional counseling?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No, Obee is a trustworthy starting point, not the final word. We always recommend verifying with your school counselor and each college's official site."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is my child's information safe and private?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. We don't require accounts, and your academic profile (grades, courses, extracurriculars) stays in your own browser, never on our servers. The one thing we collect is your email, used once to send you a copy of your list through our email provider, and not stored by us afterward."
+      }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 
@@ -22,6 +84,8 @@
     <div class="lang-dropdown" id="lang-dropdown"></div>
   </div>
 </header>
+
+<p class="sr-only">Obee is an AI college advisor that helps high school and community college transfer students find personalized, verified college recommendations through a real conversation, not a static database search.</p>
 
 <!-- ============ MAIN APP ROOT -- everything renders here via JS ============ -->
 <main id="app-root"></main>
@@ -48,7 +112,7 @@
         <button class="cta-pill cta-pill--dark js-start" type="button">Let's Find Your College</button>
       </div>
       <div class="app-card-panel app-card-panel--video">
-        <video class="promo-video" src="assets/obee-promo-sm.mp4" autoplay loop muted playsinline preload="auto"></video>
+        <video class="promo-video" loop muted playsinline preload="none" data-src="assets/obee-promo-sm.mp4"></video>
       </div>
     </div>
 
@@ -65,7 +129,7 @@
         </div>
       </div>
       <div class="app-card-panel">
-        <img class="panel-feature-img" src="assets/launchyourfuture.png" alt="" loading="lazy" decoding="async">
+        <img class="panel-feature-img" src="assets/launchyourfuture.webp" alt="" loading="lazy" decoding="async">
         <button class="cta-pill js-start" type="button">Launch your future</button>
       </div>
     </div>
@@ -107,12 +171,12 @@
       <h2 class="faq-title">Frequently<br>asked questions</h2>
       <div class="faq-list">
         <div class="faq-row">
-          <div class="faq-row-head"><span>How much does it cost?</span><span class="faq-chevron"><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 Q12 16 19 9"/></svg></span></div>
-          <div class="faq-answer"><div class="faq-answer-inner">Obee is completely free for students. No login, no accounts, just your email once so we can send you a copy of your list.</div></div>
+          <div class="faq-row-head"><span>What's different between Obee and just asking ChatGPT or Claude directly?</span><span class="faq-chevron"><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 Q12 16 19 9"/></svg></span></div>
+          <div class="faq-answer"><div class="faq-answer-inner">Anyone can open ChatGPT or Claude and ask for college advice, but a plain AI chat will answer confidently even when it's guessing, and only admit it later, "you're right, sorry, that's not accurate," once you catch the mistake yourself.<br><br>Obee is built specifically to prevent that. The intake isn't one or two questions, it's a full structured process built to gather exactly what a real admissions decision depends on (grades, courses, state, transfer units, timeline, and more), and if what you've shared still isn't enough to build a responsible list, Obee asks another question instead of guessing; it won't generate a list until it actually has what it needs. On top of that, every recommendation is checked against real, documented systems, like California's ASSIST, TAG, and IGETC transfer agreements, and explicitly tagged as verified when it's backed by that kind of hard data, general when it's a reasonable estimate, or unknown when there simply isn't a confident answer. A normal AI chat does none of that. It doesn't know when it's guessing, and it won't tell you until you push back.</div></div>
         </div>
         <div class="faq-row">
-          <div class="faq-row-head"><span>Is this actually useful or just another AI gimmick?</span><span class="faq-chevron"><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 Q12 16 19 9"/></svg></span></div>
-          <div class="faq-answer"><div class="faq-answer-inner">Obee is built on an anti-hallucination principle: it only states what's verified, flags what's general, and admits what's unknown, never presenting a confident guess as fact.<br><br>Anyone can open a free AI chat and ask for college advice. What sets Obee apart is the system underneath. Obee combines a verified, general, and unknown framework, real state by state admissions coverage, and a structured intake process engineered to gather exactly the right information about each student.</div></div>
+          <div class="faq-row-head"><span>How much does it cost?</span><span class="faq-chevron"><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 Q12 16 19 9"/></svg></span></div>
+          <div class="faq-answer"><div class="faq-answer-inner">Obee is completely free for students. No login, no accounts, just your email once so we can send you a copy of your list.</div></div>
         </div>
         <div class="faq-row">
           <div class="faq-row-head"><span>Does it replace traditional counseling?</span><span class="faq-chevron"><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9 Q12 16 19 9"/></svg></span></div>
