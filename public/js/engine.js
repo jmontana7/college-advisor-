@@ -726,6 +726,13 @@ const Engine = (() => {
         container.querySelectorAll('.opt-btn').forEach((b) => b.classList.remove('selected'));
         btn.classList.add('selected');
         refreshContinueState();
+        // Unlike isInfo (a dedicated "what is X?" button that never records
+        // an answer), this still selects normally -- the info box is just a
+        // helpful side effect for a value like "Not sure" that often means
+        // the student doesn't know the term, not that they skipped reading.
+        if (opt.infoOnSelect) {
+          callbacks.onInfoRequest && callbacks.onInfoRequest(opt.infoOnSelect);
+        }
       });
       return btn;
     }

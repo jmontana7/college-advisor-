@@ -726,7 +726,7 @@ const STEPS = {
     options: [
       { value: 'no', label: 'No' },
       { value: 'yes', label: 'Yes' },
-      { value: 'not_sure', label: 'Not sure' },
+      { value: 'not_sure', label: 'Not sure', infoOnSelect: 'what_is_first_gen' },
     ],
     splitImage: 'assets/firstgen.webp',
     skippable: true,
@@ -922,7 +922,7 @@ const STEPS = {
     options: [
       { value: 'no', label: 'No' },
       { value: 'yes', label: 'Yes' },
-      { value: 'not_sure', label: 'Not sure' },
+      { value: 'not_sure', label: 'Not sure', infoOnSelect: 'what_is_first_gen' },
     ],
     splitImage: 'assets/firstgen.webp',
     skippable: true,

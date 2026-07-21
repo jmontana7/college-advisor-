@@ -234,6 +234,13 @@
           'IGETC (Intersegmental General Education Transfer Curriculum) is a set of courses CA community college students can complete to satisfy lower-division general education requirements at most UCs and CSUs. Check ASSIST.org for your college\u2019s specific IGETC course list.'
         ),
       },
+      what_is_first_gen: {
+        title: tr('dynamic.firstGenTitle', 'What does first-generation student mean?'),
+        text: tr(
+          'dynamic.firstGenText',
+          'A first-generation student is someone whose parent(s) or guardian(s) didn\u2019t complete a four-year college degree. Lots of colleges offer extra support, scholarships, and programs specifically for first-gen students, so it\u2019s worth flagging even if you\u2019re not fully sure, we can factor it in either way.'
+        ),
+      },
     };
     const info = infoCopy[optionValue] || {
       title: tr('dynamic.moreInfoTitle', 'More info'),
