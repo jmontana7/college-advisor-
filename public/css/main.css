@@ -660,11 +660,19 @@ textarea, select, input { font-family: inherit; }
   text-align: center;
   flex: 1;
   justify-content: flex-start;
-  padding-top: 70px;
+  padding-top: 36px;
+  padding-bottom: 20px;
+  /* Caps the whole step to the space actually left under the sticky
+     #app-header so nav-row/freeform-dock never get pushed past the fold --
+     .question-body (the one part whose content size varies per step) is
+     the sole internal-scroll fallback for content too tall to shrink into
+     what's left, instead of the whole page growing and scrolling. */
+  max-height: calc(100dvh - 110px);
+  overflow: hidden;
 }
 .question-screen--wide { max-width: 1280px; }
 
-.question-header { margin-bottom: 30px; }
+.question-header { margin-bottom: 18px; }
 
 .question-progress {
   width: 100%;
@@ -721,10 +729,18 @@ textarea, select, input { font-family: inherit; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* Plain "center" clips unreachable content on both ends once this
+     scrolls (a well-known flexbox+overflow bug) -- "safe center" centers
+     only when everything fits, and falls back to start-aligned/scrollable
+     from the top otherwise. Redeclared, not replaced, so browsers without
+     "safe center" support keep the plain center above. */
+  justify-content: safe center;
   gap: 14px;
-  margin-bottom: 32px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
-  min-height: 160px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Sits above an options row (not beside it, like splitImage) -- currently
@@ -741,7 +757,7 @@ textarea, select, input { font-family: inherit; }
 /* Pushes the image + buttons down toward the chat bar instead of vertically
    centering the block, so the image has room without feeling cramped
    against the subtitle above it. */
-.question-screen--step-cc_transfer_timeline .question-body { justify-content: flex-end; }
+.question-screen--step-cc_transfer_timeline .question-body { justify-content: flex-end; justify-content: safe flex-end; }
 .question-screen--step-cc_transfer_timeline .opt-btn { padding: 13px 25px; font-size: 17px; }
 /* Selected state matches the home page CTA's own hover look (gloss-purple,
    white text), same treatment as cc_igetc. */
@@ -988,11 +1004,17 @@ textarea, select, input { font-family: inherit; }
 /* Units doesn't need a full-width select for a 1-2 digit number -- fixed,
    compact width instead of stretching to fill the row. */
 .question-split--step-cc_courses .entry-field-inline-row { gap: 8px; }
-.question-split--step-cc_courses .entry-field-inline-row select { flex: 0 0 110px; }
+.question-split--step-cc_courses .entry-field-inline-row select { flex: 0 0 90px; }
+.question-split--step-cc_courses .entry-field-inline-row .add-entry-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+}
 /* Pulls the whole card+Obee+upload-box block down toward the chat bar
    instead of vertically centering it, which otherwise leaves a much bigger
    gap above the shorter (course) card than above the taller Obee column. */
-.question-screen--step-cc_courses .question-body { justify-content: flex-end; }
+.question-screen--step-cc_courses .question-body { justify-content: flex-start; }
 
 /* hs_courses' card fields are different from cc_courses' (no college/units
    picker), but it reuses the exact same layout/proportions + transcript
@@ -1013,7 +1035,7 @@ textarea, select, input { font-family: inherit; }
 .question-split--step-hs_courses .entry-fields-row { flex: 1; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 14px; }
 .question-split--step-hs_courses .entry-field { flex: 0 0 auto; width: 100%; }
 .question-split--step-hs_courses .add-entry-btn { background: #FA7FA1; }
-.question-screen--step-hs_courses .question-body { justify-content: flex-end; }
+.question-screen--step-hs_courses .question-body { justify-content: flex-start; }
 
 /* The GPA page's slider labels are white-space:nowrap, so in a plain 1fr/1fr
    grid they out-muscle the image column down to a sliver -- flex with a
@@ -1515,16 +1537,17 @@ textarea, select, input { font-family: inherit; }
   flex-shrink: 0;
   background: var(--gloss-accent);
   border: none;
-  border-radius: 50%;
-  width: 34px;
-  height: 34px;
-  font-size: 18px;
-  line-height: 1;
+  border-radius: var(--radius-pill);
+  padding: 9px 16px;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.2;
   color: #000;
   box-shadow: var(--gloss-shadow-sm);
   transition: transform 0.15s;
 }
-.add-entry-btn:hover { transform: scale(1.08); }
+.add-entry-btn:hover { transform: scale(1.04); }
 
 /* Generic inline slot for the add button next to whichever field is last
    in the row -- college-choice has its own two-button toggle row for this,
@@ -1534,13 +1557,33 @@ textarea, select, input { font-family: inherit; }
 .entry-field-inline-row input,
 .entry-field-inline-row .autocomplete-wrap { flex: 1; min-width: 0; }
 
+/* Positioning context for .entries-list -- lets the added-entries list sit
+   absolutely to the left of the card (even bleeding past the column's own
+   margin) instead of stacking above it and pushing everything else down
+   the page every time a course gets added. */
+.card-stack-wrap { position: relative; width: 100%; }
+
 .entries-list {
-  width: 100%;
-  max-width: 500px;
+  position: absolute;
+  top: 0;
+  right: calc(100% + 16px);
+  width: 220px;
+  max-width: 220px;
+  max-height: 480px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
+}
+@media (max-width: 900px) {
+  .entries-list {
+    position: static;
+    width: 100%;
+    max-width: 100%;
+    max-height: 200px;
+    margin-bottom: 16px;
+  }
 }
 .entry-pill {
   background: rgba(255,255,255,0.6);
@@ -1720,7 +1763,7 @@ textarea, select, input { font-family: inherit; }
   display: none;
   background: none;
   border: none;
-  font-size: 15px;
+  font-size: 17.25px;
   color: var(--ink-soft);
   text-decoration: none;
   grid-column: 2;

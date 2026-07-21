@@ -1248,6 +1248,7 @@ const Engine = (() => {
   function buildCardStack(fields, entries, onChangeCb, profile, opts) {
     opts = opts || {};
     const wrap = document.createElement('div');
+    wrap.className = 'card-stack-wrap';
 
     const list = document.createElement('div');
     list.className = 'entries-list';
@@ -1316,12 +1317,15 @@ const Engine = (() => {
       const fieldWrap = document.createElement('div');
       fieldWrap.className = 'entry-field';
 
-      const label = document.createElement('label');
-      label.textContent = f.label;
-      fieldWrap.appendChild(label);
+      if (f.label) {
+        const label = document.createElement('label');
+        label.textContent = f.label;
+        fieldWrap.appendChild(label);
+      }
 
       if (f.type === 'select') {
         const select = document.createElement('select');
+        if (!f.label) select.setAttribute('aria-label', f.placeholder || f.key);
         const blank = document.createElement('option');
         blank.value = '';
         blank.textContent = f.placeholder || 'Select...';
@@ -1528,8 +1532,7 @@ const Engine = (() => {
     const addBtn = document.createElement('button');
     addBtn.className = 'add-entry-btn';
     addBtn.type = 'button';
-    addBtn.textContent = '+';
-    addBtn.setAttribute('aria-label', 'Add course');
+    addBtn.textContent = 'Click here to add class';
     addBtn.addEventListener('click', () => {
       if (Object.values(draft).some((v) => v && String(v).trim())) {
         entries.push({ ...draft });
@@ -1600,7 +1603,7 @@ const Engine = (() => {
 
     const caption = document.createElement('p');
     caption.className = 'transcript-upload-caption';
-    caption.textContent = tr('ui.transcriptUploadCaption', 'Upload your transcript here');
+    caption.textContent = tr('ui.transcriptUploadCaption', 'To make it faster, you can upload your transcript here');
     box.appendChild(caption);
 
     const input = document.createElement('input');

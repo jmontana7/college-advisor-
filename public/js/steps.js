@@ -813,7 +813,7 @@ const STEPS = {
       { key: 'name', label: 'Class Name', placeholder: 'e.g U.S History', type: 'autocomplete', suggestions: CC_COURSE_SUGGESTIONS },
       { key: 'grade', label: 'Grade', placeholder: 'Select grade', type: 'select', options: GRADE_OPTIONS },
       { key: 'college', label: 'College', placeholder: 'Current or previous college', type: 'college-choice' },
-      { key: 'units', label: 'Units', placeholder: 'Units', type: 'select', options: COURSE_UNITS_OPTIONS },
+      { key: 'units', label: '', placeholder: 'Units', type: 'select', options: COURSE_UNITS_OPTIONS },
     ],
     transcriptUpload: true,
     splitImage: 'assets/grades2.webp',
